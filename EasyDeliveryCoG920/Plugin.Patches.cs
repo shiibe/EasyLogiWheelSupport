@@ -31,6 +31,7 @@ namespace EasyDeliveryCoG920
 
             PatchByName(harmony, "DesktopDotExe", "Setup", postfix: nameof(DesktopDotExe_Setup_Postfix));
             PatchByName(harmony, "sCarController", "Update", prefix: nameof(SCarController_Update_Prefix));
+            PatchByName(harmony, "sInputManager", "GetInput", postfix: nameof(SInputManager_GetInput_Postfix));
 
             DetectWheelOnce();
             TryInitLogitech();
@@ -45,6 +46,44 @@ namespace EasyDeliveryCoG920
         private void OnDestroy()
         {
             ShutdownLogitech();
+        }
+
+        private static void SInputManager_GetInput_Postfix(sInputManager __instance)
+        {
+            if (!ShouldApply() || __instance == null)
+            {
+                return;
+            }
+
+            // Don't inject wheel input while the game is explicitly locking input (menus/cutscenes/buildings).
+            if (__instance.lockInput || PauseSystem.paused)
+            {
+                return;
+            }
+
+            if (_isInWalkingMode)
+            {
+                return;
+            }
+
+            if (!TryGetLogiState(out var state))
+            {
+                return;
+            }
+
+            int rawSteer = GetAxisValue(state, GetSteeringAxis());
+            int rawThrottle = GetAxisValue(state, GetThrottleAxis());
+            int rawBrake = GetAxisValue(state, GetBrakeAxis());
+
+            float steering = NormalizeSteering(rawSteer);
+            float throttle = NormalizePedal(rawThrottle, PedalKind.Throttle);
+            float brake = NormalizePedal(rawBrake, PedalKind.Brake);
+
+            float accel = Mathf.Clamp(throttle - brake, -1f, 1f);
+            __instance.driveInput = new Vector2(steering, accel);
+            __instance.breakPressed = brake > 0.1f;
+
+            SetWheelLastInput(steering, accel);
         }
 
         #pragma warning disable IDE1006

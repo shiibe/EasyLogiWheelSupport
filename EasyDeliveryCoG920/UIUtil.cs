@@ -42,6 +42,51 @@ namespace EasyDeliveryCoG920
             return false;
         }
 
+        public bool SimpleButton(string name, float x, float y)
+        {
+            name = LocalizationDictionary.Translate(name);
+            if (M.MouseOver((int)x - 32, (int)y, 64, 8))
+            {
+                M.mouseIcon = 128;
+                x += 4f;
+                name = ">" + name;
+                if (M.mouseButton)
+                {
+                    M.mouseIcon = 160;
+                }
+                if (M.mouseButtonUp)
+                {
+                    return true;
+                }
+            }
+            R.fontOptions.alignment = sFancyText.FontOptions.Alignment.center;
+            R.fput(name, x, y);
+            return false;
+        }
+
+        public bool CycleButton(string name, string value, float x, float y)
+        {
+            name = LocalizationDictionary.Translate(name);
+            string text = "[" + value + "]";
+            R.put(text, x + 4f, y);
+            if (M.MouseOver((int)x - 2, (int)y, text.Length * 8 + 4, 8))
+            {
+                M.mouseIcon = 128;
+                name = ">" + name;
+                if (M.mouseButton)
+                {
+                    M.mouseIcon = 160;
+                }
+                if (M.mouseButtonUp)
+                {
+                    return true;
+                }
+            }
+            R.fontOptions.alignment = sFancyText.FontOptions.Alignment.right;
+            R.fput(name, x - 4f, y);
+            return false;
+        }
+
         public bool? Toggle(string name, bool state, float x, float y)
         {
             name = LocalizationDictionary.Translate(name);

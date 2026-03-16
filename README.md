@@ -39,6 +39,10 @@ Install
 In-game menu
 - Click `wheel.exe` in the main menu to adjust wheel/FFB settings.
 
+Calibration
+- Only needed if throttle/brake axes read incorrectly (e.g., stuck throttle).
+- Use `wheel.exe` -> Calibration.
+
 ## Build
 - In `G920-Workspace` profile: install `BepInEx-BepInExPack-5.4.2304` so the local reference DLLs exist.
 - Build: `dotnet build EasyDeliveryCoG920/EasyDeliveryCoG920.csproj -c Release`
