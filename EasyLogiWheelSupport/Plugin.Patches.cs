@@ -3,7 +3,7 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
 
-namespace EasyDeliveryCoG920
+namespace EasyLogiWheelSupport
 {
     public partial class Plugin
     {
@@ -35,7 +35,7 @@ namespace EasyDeliveryCoG920
 
             DetectWheelOnce();
             TryInitLogitech();
-            _log.LogInfo("EasyDeliveryCoG920 loaded.");
+            _log.LogInfo("EasyLogiWheelSupport loaded.");
         }
 
         private void Update()

@@ -1,6 +1,6 @@
 using BepInEx;
 
-namespace EasyDeliveryCoG920
+namespace EasyLogiWheelSupport
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public partial class Plugin : BaseUnityPlugin

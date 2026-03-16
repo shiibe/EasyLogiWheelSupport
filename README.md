@@ -1,9 +1,9 @@
 <h1>
 <p align="center">
-  <br>EasyDeliveryCoG920
+  <br>EasyLogiWheelSupport
 </h1>
   <p align="center">
-    Logitech G920 support for Easy Delivery Co.
+    Logitech wheel support for Easy Delivery Co.
     <br />
     <a href="#about">About</a>
     ·
@@ -17,7 +17,9 @@
 <hr/>
 
 ## About
-This is a BepInEx + Harmony mod intended to add Logitech G920 wheel input support to Easy Delivery Co.
+This is a BepInEx + Harmony mod intended to add Logitech wheel input support to Easy Delivery Co.
+
+Tested on a G920, but it should work with most (if not all) modern Logitech wheels supported by Logitech G HUB / LGS.
 
 This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 
@@ -31,7 +33,7 @@ FFB
 
 Install
 - r2modman/Thunderstore: install and launch the game
-- Manual: copy `EasyDeliveryCoG920.dll` to `BepInEx/plugins/EasyDeliveryCoG920/`
+- Manual: copy `EasyLogiWheelSupport.dll` to `BepInEx/plugins/EasyLogiWheelSupport/`
 
 ## Configuration
 - Config file: `BepInEx/config/shibe.easydeliveryco.g920.cfg`
@@ -45,5 +47,5 @@ Calibration
 
 ## Build
 - In `G920-Workspace` profile: install `BepInEx-BepInExPack-5.4.2304` so the local reference DLLs exist.
-- Build: `dotnet build EasyDeliveryCoG920/EasyDeliveryCoG920.csproj -c Release`
+- Build: `dotnet build EasyLogiWheelSupport/EasyLogiWheelSupport.csproj -c Release`
 - Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 0.1.0`

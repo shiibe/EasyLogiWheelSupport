@@ -1,8 +1,8 @@
 using UnityEngine;
 
-namespace EasyDeliveryCoG920
+namespace EasyLogiWheelSupport
 {
-    public class G920MenuWindow : MonoBehaviour
+    public class WheelMenuWindow : MonoBehaviour
     {
         public const string FileName = "wheel";
         public const string ListenerName = "G920Menu";

@@ -2,7 +2,7 @@ using System;
 using HarmonyLib;
 using UnityEngine;
 
-namespace EasyDeliveryCoG920
+namespace EasyLogiWheelSupport
 {
     public partial class Plugin
     {

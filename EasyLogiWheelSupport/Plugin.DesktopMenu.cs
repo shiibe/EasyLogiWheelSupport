@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using UnityEngine;
 
-namespace EasyDeliveryCoG920
+namespace EasyLogiWheelSupport
 {
     public partial class Plugin
     {
@@ -50,7 +50,7 @@ namespace EasyDeliveryCoG920
             DesktopDotExe.File existingFile = null;
             foreach (var file in desktop.files)
             {
-                if (file != null && string.Equals(file.name, G920MenuWindow.FileName, StringComparison.OrdinalIgnoreCase))
+                if (file != null && string.Equals(file.name, WheelMenuWindow.FileName, StringComparison.OrdinalIgnoreCase))
                 {
                     existingFile = file;
                     break;
@@ -61,9 +61,9 @@ namespace EasyDeliveryCoG920
             {
                 var file = new DesktopDotExe.File(desktop.R, desktop)
                 {
-                    name = G920MenuWindow.FileName,
+                    name = WheelMenuWindow.FileName,
                     type = DesktopDotExe.FileType.exe,
-                    data = G920MenuWindow.ListenerData,
+                    data = WheelMenuWindow.ListenerData,
                     icon = 7,
                     iconHover = 7,
                     position = position,
@@ -81,11 +81,11 @@ namespace EasyDeliveryCoG920
             }
 
             var root = desktop.transform;
-            if (root.Find(G920MenuWindow.ListenerName) == null)
+            if (root.Find(WheelMenuWindow.ListenerName) == null)
             {
-                var listener = new GameObject(G920MenuWindow.ListenerName);
+                var listener = new GameObject(WheelMenuWindow.ListenerName);
                 listener.transform.SetParent(root, false);
-                listener.AddComponent<G920MenuWindow>();
+                listener.AddComponent<WheelMenuWindow>();
             }
         }
     }

@@ -1,6 +1,6 @@
 
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyDeliveryCoG920", "EasyDeliveryCoG920\EasyDeliveryCoG920.csproj", "{5B99A0FA-9A67-4748-9F89-4B0B8F0E2D60}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyLogiWheelSupport", "EasyLogiWheelSupport\EasyLogiWheelSupport.csproj", "{5B99A0FA-9A67-4748-9F89-4B0B8F0E2D60}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

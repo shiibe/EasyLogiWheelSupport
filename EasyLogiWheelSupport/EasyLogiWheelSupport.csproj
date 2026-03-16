@@ -5,8 +5,8 @@
         <LangVersion>latest</LangVersion>
         <Nullable>disable</Nullable>
         <ImplicitUsings>disable</ImplicitUsings>
-        <AssemblyName>EasyDeliveryCoG920</AssemblyName>
-        <RootNamespace>EasyDeliveryCoG920</RootNamespace>
+        <AssemblyName>EasyLogiWheelSupport</AssemblyName>
+        <RootNamespace>EasyLogiWheelSupport</RootNamespace>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 
         <GameDir>G:\SteamLibrary\steamapps\common\Easy Delivery Co</GameDir>
@@ -58,14 +58,14 @@
     </ItemGroup>
 
     <Target Name="CopyToR2ModmanProfile" AfterTargets="Build">
-        <MakeDir Directories="$(ProfileDir)\BepInEx\plugins\EasyDeliveryCoG920" />
+        <MakeDir Directories="$(ProfileDir)\BepInEx\plugins\EasyLogiWheelSupport" />
         <Copy
                 SourceFiles="$(TargetDir)$(AssemblyName).dll"
-                DestinationFolder="$(ProfileDir)\BepInEx\plugins\EasyDeliveryCoG920"
+                DestinationFolder="$(ProfileDir)\BepInEx\plugins\EasyLogiWheelSupport"
                 SkipUnchangedFiles="true" />
         <Copy
                 SourceFiles="$(TargetDir)$(AssemblyName).pdb"
-                DestinationFolder="$(ProfileDir)\BepInEx\plugins\EasyDeliveryCoG920"
+                DestinationFolder="$(ProfileDir)\BepInEx\plugins\EasyLogiWheelSupport"
                 SkipUnchangedFiles="true"
                 Condition="Exists('$(TargetDir)$(AssemblyName).pdb')" />
     </Target>
@@ -84,7 +84,7 @@
 
         <Copy
                 SourceFiles="$(LogiWrapperSource)"
-                DestinationFolder="$(ProfileDir)\BepInEx\plugins\EasyDeliveryCoG920"
+                DestinationFolder="$(ProfileDir)\BepInEx\plugins\EasyLogiWheelSupport"
                 SkipUnchangedFiles="true"
                 Condition="Exists('$(LogiWrapperSource)')" />
 

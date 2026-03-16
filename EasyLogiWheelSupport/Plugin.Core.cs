@@ -4,7 +4,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using UnityEngine;
 
-namespace EasyDeliveryCoG920
+namespace EasyLogiWheelSupport
 {
     public partial class Plugin
     {

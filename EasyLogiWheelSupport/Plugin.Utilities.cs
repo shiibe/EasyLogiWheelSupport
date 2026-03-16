@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 using HarmonyLib;
 
-namespace EasyDeliveryCoG920
+namespace EasyLogiWheelSupport
 {
     public partial class Plugin
     {

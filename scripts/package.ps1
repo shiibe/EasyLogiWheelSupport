@@ -2,13 +2,13 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
     [string]$Configuration = "Release",
-    [string]$Project = "EasyDeliveryCoG920/EasyDeliveryCoG920.csproj"
+    [string]$Project = "EasyLogiWheelSupport/EasyLogiWheelSupport.csproj"
 )
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$pluginName = "EasyDeliveryCoG920"
+$pluginName = "EasyLogiWheelSupport"
 $distRoot = Join-Path $repoRoot "Thunderstore"
 $distPlugins = Join-Path $distRoot "BepInEx\plugins\$pluginName"
 $zipRoot = Join-Path $repoRoot "dist"

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace EasyDeliveryCoG920
+namespace EasyLogiWheelSupport
 {
     public class UIUtil
     {
