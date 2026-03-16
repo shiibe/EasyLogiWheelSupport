@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using UnityEngine;
@@ -34,10 +35,14 @@ namespace EasyDeliveryCoG920
         internal const string PrefKeyCalBrakeReleased = "G920Cal_BrakeReleased";
         internal const string PrefKeyCalBrakePressed = "G920Cal_BrakePressed";
 
+        internal const string PrefKeyCalClutchReleased = "G920Cal_ClutchReleased";
+        internal const string PrefKeyCalClutchPressed = "G920Cal_ClutchPressed";
+
         internal enum PedalKind
         {
             Throttle = 0,
-            Brake = 1
+            Brake = 1,
+            Clutch = 2
         }
 
         internal enum AxisId
@@ -57,6 +62,7 @@ namespace EasyDeliveryCoG920
         internal const string PrefKeySteeringAxis = "G920Axis_Steer";
         internal const string PrefKeyThrottleAxis = "G920Axis_Throttle";
         internal const string PrefKeyBrakeAxis = "G920Axis_Brake";
+        internal const string PrefKeyClutchAxis = "G920Axis_Clutch";
 
         private static bool _logiInitAttempted;
         private static bool _logiAvailable;
@@ -67,14 +73,22 @@ namespace EasyDeliveryCoG920
         private static float _logiNextInitAttemptTime;
         private static bool _logiIgnoreXInputUsed;
 
+        private static bool _logiWasConnected;
+        private static string _logiLastName;
+        private static string _logiLastPath;
+
         private static bool _isInWalkingMode;
         private static float _currentSpeedKmh;
         private static bool _isOffRoad;
         private static bool _isSliding;
 
         private static int _wheelLastUpdateFrame;
+        private static float _wheelLastUpdateTime;
         private static float _wheelLastSteer;
         private static float _wheelLastAccel;
+
+        private static float _wheelMenuHeartbeatTime;
+        private static float _ffbPageHeartbeatTime;
 
         private static bool ShouldApply()
         {
@@ -134,7 +148,7 @@ namespace EasyDeliveryCoG920
 
         internal static int GetWheelRange()
         {
-            return Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyWheelRange, 900), 180, 900);
+            return Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyWheelRange, 270), 180, 900);
         }
 
         internal static void SetWheelRange(int degrees)
@@ -146,13 +160,33 @@ namespace EasyDeliveryCoG920
 
         internal static float GetSteeringGain()
         {
-            return Mathf.Clamp(PlayerPrefs.GetFloat(PrefKeySteeringGain, 1.0f), 0.5f, 2.5f);
+            return Mathf.Clamp(PlayerPrefs.GetFloat(PrefKeySteeringGain, 1.0f), 0.5f, 3.0f);
         }
 
         internal static void SetSteeringGain(float value)
         {
-            value = Mathf.Clamp(value, 0.5f, 2.5f);
+            value = Mathf.Clamp(value, 0.5f, 3.0f);
             PlayerPrefs.SetFloat(PrefKeySteeringGain, value);
+        }
+
+        internal static void ResetFfbDefaults()
+        {
+            PlayerPrefs.SetInt(PrefKeyFfbEnabled, 1);
+            PlayerPrefs.SetFloat(PrefKeyFfbOverall, 0.75f);
+            PlayerPrefs.SetFloat(PrefKeyFfbSpring, 0.60f);
+            PlayerPrefs.SetFloat(PrefKeyFfbDamper, 0.20f);
+
+            StopAllForces();
+            ApplyControllerPropertiesIfReady();
+        }
+
+        internal static void ResetSteeringDefaults()
+        {
+            PlayerPrefs.SetInt(PrefKeyWheelRange, 270);
+            PlayerPrefs.SetFloat(PrefKeySteeringGain, 1.0f);
+            PlayerPrefs.SetFloat(PrefKeySteeringDeadzone, 0.01f);
+
+            ApplyWheelRangeIfReady();
         }
 
         internal static float GetSteeringDeadzone()
@@ -171,6 +205,14 @@ namespace EasyDeliveryCoG920
             return (AxisId)Mathf.Clamp(PlayerPrefs.GetInt(PrefKeySteeringAxis, (int)AxisId.lX), 0, (int)AxisId.slider1);
         }
 
+        internal static void SetSteeringAxis(AxisId axis)
+        {
+            PlayerPrefs.SetInt(PrefKeySteeringAxis, (int)axis);
+            PlayerPrefs.DeleteKey(PrefKeyCalSteerCenter);
+            PlayerPrefs.DeleteKey(PrefKeyCalSteerLeft);
+            PlayerPrefs.DeleteKey(PrefKeyCalSteerRight);
+        }
+
         internal static AxisId GetThrottleAxis()
         {
             // G920 commonly reports throttle on lY.
@@ -180,6 +222,12 @@ namespace EasyDeliveryCoG920
         internal static AxisId GetBrakeAxis()
         {
             return (AxisId)Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyBrakeAxis, (int)AxisId.lRz), 0, (int)AxisId.slider1);
+        }
+
+        internal static AxisId GetClutchAxis()
+        {
+            // Common for clutch to appear on lRy, but depends on driver settings.
+            return (AxisId)Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyClutchAxis, (int)AxisId.lRy), 0, (int)AxisId.slider1);
         }
 
         internal static void SetThrottleAxis(AxisId axis)
@@ -194,6 +242,13 @@ namespace EasyDeliveryCoG920
             PlayerPrefs.SetInt(PrefKeyBrakeAxis, (int)axis);
             PlayerPrefs.DeleteKey(PrefKeyCalBrakeReleased);
             PlayerPrefs.DeleteKey(PrefKeyCalBrakePressed);
+        }
+
+        internal static void SetClutchAxis(AxisId axis)
+        {
+            PlayerPrefs.SetInt(PrefKeyClutchAxis, (int)axis);
+            PlayerPrefs.DeleteKey(PrefKeyCalClutchReleased);
+            PlayerPrefs.DeleteKey(PrefKeyCalClutchPressed);
         }
 
         private static void DetectWheelOnce()
@@ -264,11 +319,16 @@ namespace EasyDeliveryCoG920
                 // Throttle log spam; keep retrying quietly.
                 if (_logiInitAttemptCount == 1)
                 {
-                    _log.LogWarning("Logitech SDK init failed. Make sure Logitech G HUB/LGS is installed, and the wheel is connected/powered.");
+                    _log.LogInfo("Logitech SDK not ready yet; retrying...");
+                    _log.LogInfo("If this never initializes, make sure Logitech G HUB/LGS is installed and the wheel is connected/powered.");
+                }
+                else if (_logiInitAttemptCount == 5)
+                {
+                    _log.LogWarning("Still retrying Logitech SDK init (wheel/G HUB may still be starting). You can also use 'Retry SDK' in wheel.exe.");
                 }
                 else
                 {
-                    LogDebug($"Logitech SDK init still failing (attempt {_logiInitAttemptCount}).");
+                    LogDebug($"Logitech SDK init still not ready (attempt {_logiInitAttemptCount}).");
                 }
 
                 _logiNextInitAttemptTime = Time.unscaledTime + 3.0f;
@@ -306,7 +366,7 @@ namespace EasyDeliveryCoG920
 
             _logiIgnoreXInputUsed = ignoreXInputControllers;
             _logiAvailable = true;
-            _log.LogInfo($"Logitech SDK initialized (ignoreXInputControllers={ignoreXInputControllers}).");
+            _log.LogMessage($"Logitech SDK initialized (ignoreXInputControllers={ignoreXInputControllers}).");
             ApplyControllerPropertiesIfReady();
             ApplyWheelRangeIfReady();
             return true;
@@ -314,18 +374,58 @@ namespace EasyDeliveryCoG920
 
         internal static void ForceReinitLogitech()
         {
+            ForceReinitLogitech(false);
+        }
+
+        internal static void ForceReinitLogitech(bool forceReconnect)
+        {
+            // Users hit this button to recover from "Retrying" or "No wheel".
+            // If forceReconnect is true, we also tear down when connected.
+            try
+            {
+                if (_logiAvailable)
+                {
+                    SafeLogiUpdate();
+                    _logiConnected = LogitechGSDK.LogiIsConnected(_logiIndex);
+                }
+            }
+            catch
+            {
+            }
+
+            if (!forceReconnect && _logiAvailable && _logiConnected)
+            {
+                ApplyControllerPropertiesIfReady();
+                ApplyWheelRangeIfReady();
+                return;
+            }
+
+            if (forceReconnect && _log != null)
+            {
+                _log.LogInfo("Forcing Logitech SDK reconnect...");
+            }
+
             _logiAvailable = false;
             _logiConnected = false;
             _logiInitAttempted = false;
             _logiInitAttemptCount = 0;
             _logiNextInitAttemptTime = 0f;
+
             try
             {
+                StopAllForces();
                 LogitechGSDK.LogiSteeringShutdown();
             }
             catch
             {
             }
+
+            _logiWasConnected = false;
+            _logiLastName = null;
+            _logiLastPath = null;
+
+            // Attempt immediately.
+            TryInitLogitech();
         }
 
         internal static string GetLogitechStatus()
@@ -336,14 +436,120 @@ namespace EasyDeliveryCoG920
             }
             if (!_logiAvailable)
             {
-                return "Init failed";
+                return "Retrying";
             }
             return _logiConnected ? "Connected" : "No wheel";
+        }
+
+        private static void MaybeLogWheelDetected()
+        {
+            if (_log == null)
+            {
+                return;
+            }
+
+            if (!_logiConnected)
+            {
+                _logiWasConnected = false;
+                return;
+            }
+
+            string name = TryGetWheelFriendlyName(_logiIndex);
+            string path = TryGetWheelDevicePath(_logiIndex);
+            bool shouldLog = !_logiWasConnected
+                             || (!string.IsNullOrWhiteSpace(name) && !string.Equals(name, _logiLastName, StringComparison.Ordinal))
+                             || (!string.IsNullOrWhiteSpace(path) && !string.Equals(path, _logiLastPath, StringComparison.Ordinal));
+
+            _logiWasConnected = true;
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                _logiLastName = name;
+            }
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                _logiLastPath = path;
+            }
+
+            if (!shouldLog)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(path))
+            {
+                _log.LogMessage($"Wheel detected: {name} ({path})");
+                return;
+            }
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                _log.LogMessage($"Wheel detected: {name}");
+                return;
+            }
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                _log.LogMessage($"Wheel detected: {path}");
+                return;
+            }
+
+            try
+            {
+                if (LogitechGSDK.LogiIsModelConnected(_logiIndex, LogitechGSDK.LOGI_MODEL_G920))
+                {
+                    _log.LogMessage("Wheel detected: Logitech G920");
+                }
+                else if (LogitechGSDK.LogiIsModelConnected(_logiIndex, LogitechGSDK.LOGI_MODEL_G29))
+                {
+                    _log.LogMessage("Wheel detected: Logitech G29");
+                }
+                else
+                {
+                    _log.LogMessage("Wheel detected.");
+                }
+            }
+            catch
+            {
+                _log.LogMessage("Wheel detected.");
+            }
+        }
+
+        private static string TryGetWheelFriendlyName(int index)
+        {
+            try
+            {
+                var sb = new StringBuilder(256);
+                if (LogitechGSDK.LogiGetFriendlyProductName(index, sb, sb.Capacity))
+                {
+                    string s = sb.ToString();
+                    return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+                }
+            }
+            catch
+            {
+            }
+            return null;
+        }
+
+        private static string TryGetWheelDevicePath(int index)
+        {
+            try
+            {
+                var sb = new StringBuilder(512);
+                if (LogitechGSDK.LogiGetDevicePath(index, sb, sb.Capacity))
+                {
+                    string s = sb.ToString();
+                    return string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+                }
+            }
+            catch
+            {
+            }
+            return null;
         }
 
         internal static void SetWheelLastInput(float steer, float accel)
         {
             _wheelLastUpdateFrame = Time.frameCount;
+            _wheelLastUpdateTime = Time.unscaledTime;
             _wheelLastSteer = Mathf.Clamp(steer, -1f, 1f);
             _wheelLastAccel = Mathf.Clamp(accel, -1f, 1f);
         }
@@ -361,6 +567,53 @@ namespace EasyDeliveryCoG920
             steer = _wheelLastSteer;
             accel = _wheelLastAccel;
             return true;
+        }
+
+        internal static bool TryGetWheelLastInputRecent(float maxAgeSeconds, out float steer, out float accel)
+        {
+            steer = 0f;
+            accel = 0f;
+
+            if (Time.unscaledTime - _wheelLastUpdateTime > maxAgeSeconds)
+            {
+                return false;
+            }
+
+            steer = _wheelLastSteer;
+            accel = _wheelLastAccel;
+            return true;
+        }
+
+        internal static void SetWheelMenuActive(bool active)
+        {
+            if (active)
+            {
+                _wheelMenuHeartbeatTime = Time.unscaledTime;
+            }
+        }
+
+        internal static void SetFfbPageActive(bool active)
+        {
+            if (active)
+            {
+                _ffbPageHeartbeatTime = Time.unscaledTime;
+                // Force-enable so slider tweaks can be felt even if config says "off".
+                ApplyControllerPropertiesIfReady(forceEnableOverride: true);
+            }
+            else
+            {
+                ApplyControllerPropertiesIfReady(forceEnableOverride: null);
+            }
+        }
+
+        private static bool IsWheelMenuActive()
+        {
+            return Time.unscaledTime - _wheelMenuHeartbeatTime < 0.5f;
+        }
+
+        private static bool IsFfbPageActive()
+        {
+            return Time.unscaledTime - _ffbPageHeartbeatTime < 0.5f;
         }
 
         internal static bool TryGetLogiState(out LogitechGSDK.DIJOYSTATE2ENGINES state)
@@ -390,8 +643,11 @@ namespace EasyDeliveryCoG920
             _logiConnected = LogitechGSDK.LogiIsConnected(_logiIndex);
             if (!_logiConnected)
             {
+                _logiWasConnected = false;
                 return false;
             }
+
+            MaybeLogWheelDetected();
 
             state = LogitechGSDK.LogiGetStateCSharp(_logiIndex);
             EnsureDefaultCalibrationFromState(state);
@@ -420,6 +676,16 @@ namespace EasyDeliveryCoG920
             if (!PlayerPrefs.HasKey(PrefKeyCalBrakePressed))
             {
                 PlayerPrefs.SetInt(PrefKeyCalBrakePressed, GuessPressedFromReleased(PlayerPrefs.GetInt(PrefKeyCalBrakeReleased)));
+            }
+
+            int clutchRaw = GetAxisValue(state, GetClutchAxis());
+            if (!PlayerPrefs.HasKey(PrefKeyCalClutchReleased))
+            {
+                PlayerPrefs.SetInt(PrefKeyCalClutchReleased, clutchRaw);
+            }
+            if (!PlayerPrefs.HasKey(PrefKeyCalClutchPressed))
+            {
+                PlayerPrefs.SetInt(PrefKeyCalClutchPressed, GuessPressedFromReleased(PlayerPrefs.GetInt(PrefKeyCalClutchReleased)));
             }
 
             if (!PlayerPrefs.HasKey(PrefKeyCalSteerCenter))
@@ -469,6 +735,9 @@ namespace EasyDeliveryCoG920
             PlayerPrefs.DeleteKey(PrefKeyCalThrottlePressed);
             PlayerPrefs.DeleteKey(PrefKeyCalBrakeReleased);
             PlayerPrefs.DeleteKey(PrefKeyCalBrakePressed);
+
+            PlayerPrefs.DeleteKey(PrefKeyCalClutchReleased);
+            PlayerPrefs.DeleteKey(PrefKeyCalClutchPressed);
         }
 
         internal static float NormalizeSteering(int rawX)
@@ -515,8 +784,23 @@ namespace EasyDeliveryCoG920
 
         internal static float NormalizePedal(int rawAxis, PedalKind kind)
         {
-            string releasedKey = kind == PedalKind.Throttle ? PrefKeyCalThrottleReleased : PrefKeyCalBrakeReleased;
-            string pressedKey = kind == PedalKind.Throttle ? PrefKeyCalThrottlePressed : PrefKeyCalBrakePressed;
+            string releasedKey;
+            string pressedKey;
+            switch (kind)
+            {
+                case PedalKind.Throttle:
+                    releasedKey = PrefKeyCalThrottleReleased;
+                    pressedKey = PrefKeyCalThrottlePressed;
+                    break;
+                case PedalKind.Brake:
+                    releasedKey = PrefKeyCalBrakeReleased;
+                    pressedKey = PrefKeyCalBrakePressed;
+                    break;
+                default:
+                    releasedKey = PrefKeyCalClutchReleased;
+                    pressedKey = PrefKeyCalClutchPressed;
+                    break;
+            }
 
             int released = PlayerPrefs.GetInt(releasedKey, 32767);
             int pressed = PlayerPrefs.GetInt(pressedKey, -32768);
@@ -588,21 +872,23 @@ namespace EasyDeliveryCoG920
                 return;
             }
 
-            bool enabled = GetFfbEnabled();
+            bool wheelMenuActive = IsWheelMenuActive();
+            bool ffbPageActive = IsFfbPageActive();
+            bool enabled = ffbPageActive || GetFfbEnabled();
             if (!enabled)
             {
                 return;
             }
 
             // Disable FFB while paused / input locked (menus, cutscenes, building UIs).
-            if (PauseSystem.paused || IsInputLocked())
+            if ((PauseSystem.paused || IsInputLocked()) && !(wheelMenuActive && GetFfbEnabled()) && !ffbPageActive)
             {
                 StopAllForces();
                 return;
             }
 
             bool inCar = !_isInWalkingMode;
-            if (!inCar)
+            if (!inCar && !(wheelMenuActive && GetFfbEnabled()) && !ffbPageActive)
             {
                 StopAllForces();
                 return;
@@ -616,15 +902,19 @@ namespace EasyDeliveryCoG920
             _logiConnected = LogitechGSDK.LogiIsConnected(_logiIndex);
             if (!_logiConnected)
             {
+                _logiWasConnected = false;
                 return;
             }
+
+            MaybeLogWheelDetected();
 
             if (!LogitechGSDK.LogiHasForceFeedback(_logiIndex))
             {
                 return;
             }
 
-            float speed = Mathf.Clamp(_currentSpeedKmh, 0f, 200f);
+            bool menuMode = ffbPageActive || (wheelMenuActive && GetFfbEnabled());
+            float speed = menuMode ? 0f : Mathf.Clamp(_currentSpeedKmh, 0f, 200f);
 
             int damperCoeff = Mathf.RoundToInt(Mathf.Lerp(5f, 35f, Mathf.Clamp01(speed / 120f)) * GetFfbDamperGain());
             damperCoeff = Mathf.Clamp(damperCoeff, 0, 100);
@@ -635,13 +925,13 @@ namespace EasyDeliveryCoG920
             springCoeff = Mathf.Clamp(springCoeff, 0, 100);
             LogitechGSDK.LogiPlaySpringForce(_logiIndex, 0, springCoeff, springCoeff);
 
-            if (_isOffRoad && speed > 5f)
+            if (!menuMode && _isOffRoad && speed > 5f)
             {
                 int dirt = Mathf.RoundToInt(Mathf.Lerp(10f, 35f, Mathf.Clamp01(speed / 70f)));
                 dirt = Mathf.Clamp(dirt, 0, 100);
                 LogitechGSDK.LogiPlayDirtRoadEffect(_logiIndex, dirt);
             }
-            else if (_isSliding)
+            else if (!menuMode && _isSliding)
             {
                 LogitechGSDK.LogiPlayBumpyRoadEffect(_logiIndex, 8);
             }
@@ -704,7 +994,7 @@ namespace EasyDeliveryCoG920
             }
         }
 
-        private static void ApplyControllerPropertiesIfReady()
+        private static void ApplyControllerPropertiesIfReady(bool? forceEnableOverride)
         {
             if (!_logiAvailable)
             {
@@ -713,9 +1003,10 @@ namespace EasyDeliveryCoG920
 
             try
             {
+                bool forceEnable = forceEnableOverride.HasValue ? forceEnableOverride.Value : GetFfbEnabled();
                 var props = new LogitechGSDK.LogiControllerPropertiesData
                 {
-                    forceEnable = GetFfbEnabled(),
+                    forceEnable = forceEnable,
                     overallGain = Mathf.RoundToInt(GetFfbOverallGain() * 100f),
                     springGain = Mathf.RoundToInt(GetFfbSpringGain() * 100f),
                     damperGain = Mathf.RoundToInt(GetFfbDamperGain() * 100f),
@@ -732,6 +1023,11 @@ namespace EasyDeliveryCoG920
             {
                 // ignore
             }
+        }
+
+        private static void ApplyControllerPropertiesIfReady()
+        {
+            ApplyControllerPropertiesIfReady(forceEnableOverride: null);
         }
 
         private static void ApplyWheelRangeIfReady()

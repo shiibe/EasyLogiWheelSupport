@@ -43,7 +43,7 @@ namespace EasyDeliveryCoG920
             }
 
             bool visible = _desktopMenuIconVisible == null || _desktopMenuIconVisible.Value;
-            float x = ParseDesktopIconFloat(_desktopMenuIconX != null ? _desktopMenuIconX.Value : null, 5.5f, "wheel_menu_icon_x");
+            float x = ParseDesktopIconFloat(_desktopMenuIconX != null ? _desktopMenuIconX.Value : null, 4f, "wheel_menu_icon_x");
             float y = ParseDesktopIconFloat(_desktopMenuIconY != null ? _desktopMenuIconY.Value : null, 3.25f, "wheel_menu_icon_y");
             var position = new Vector2(x, y);
 

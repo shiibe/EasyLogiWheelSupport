@@ -32,7 +32,8 @@ namespace EasyDeliveryCoG920
             Ffb = 1,
             Steering = 2,
             Calibration = 3,
-            Bindings = 4
+            CalibrationWizard = 4,
+            Bindings = 5
         }
 
         public void FrameUpdate(DesktopDotExe.WindowView view)
@@ -66,6 +67,13 @@ namespace EasyDeliveryCoG920
 
         public void BackButtonPressed()
         {
+            if (_page == Page.CalibrationWizard)
+            {
+                _calStep = CalStep.None;
+                _page = Page.Calibration;
+                return;
+            }
+
             if (_page != Page.Main)
             {
                 _calStep = CalStep.None;
@@ -79,6 +87,10 @@ namespace EasyDeliveryCoG920
             float y = p.y + 10f;
             float line = 12f;
             float sectionGap = 4f;
+
+            // Let the plugin know the wheel menu is open (used to keep FFB on while paused).
+            Plugin.SetWheelMenuActive(true);
+            Plugin.SetFfbPageActive(_page == Page.Ffb);
 
             _util.Label("Wheel Settings", p.x + p.width / 2f, y);
             y += line + sectionGap;
@@ -99,6 +111,10 @@ namespace EasyDeliveryCoG920
             {
                 DrawCalibration(p, center, ref y, line, sectionGap);
             }
+            else if (_page == Page.CalibrationWizard)
+            {
+                DrawCalibrationWizard(p, center, ref y, line, sectionGap);
+            }
             else
             {
                 DrawBindings(p, center, ref y, line, sectionGap);
@@ -107,34 +123,37 @@ namespace EasyDeliveryCoG920
 
         private void DrawMain(Rect p, float center, ref float y, float line, float sectionGap)
         {
-            _util.Label("Logitech SDK", p.x + p.width / 2f, y);
-            _util.ValueLabel(Plugin.GetLogitechStatus(), p.x + p.width - 12f, y);
-            y += line;
+            float cx = p.x + p.width / 2f;
 
-            if (_util.SimpleButton("Retry SDK", p.x + p.width / 2f, y))
-            {
-                Plugin.ForceReinitLogitech();
-            }
-            y += line + sectionGap;
-
-            if (_util.SimpleButton("Force Feedback", p.x + p.width / 2f, y))
+            // Main navigation buttons.
+            float btnGap = 22f;
+            if (_util.FancyButton("Force Feedback", cx, y))
             {
                 _page = Page.Ffb;
             }
-            y += line;
-            if (_util.SimpleButton("Steering", p.x + p.width / 2f, y))
+            y += btnGap;
+            if (_util.FancyButton("Steering", cx, y))
             {
                 _page = Page.Steering;
             }
-            y += line;
-            if (_util.SimpleButton("Calibration", p.x + p.width / 2f, y))
+            y += btnGap;
+            if (_util.FancyButton("Calibration", cx, y))
             {
                 _page = Page.Calibration;
             }
-            y += line;
-            if (_util.SimpleButton("Bindings", p.x + p.width / 2f, y))
+            y += btnGap;
+            if (_util.FancyButton("Bindings", cx, y))
             {
                 _page = Page.Bindings;
+            }
+
+            // SDK status at bottom.
+            float statusY = p.y + p.height - 30f;
+            float retryY = p.y + p.height - 18f;
+            _util.Label("Logitech SDK: " + Plugin.GetLogitechStatus(), cx, statusY);
+            if (_util.SimpleButton("Retry SDK", cx, retryY))
+            {
+                Plugin.ForceReinitLogitech(true);
             }
         }
 
@@ -142,12 +161,21 @@ namespace EasyDeliveryCoG920
         {
             _util.Label("Force Feedback", p.x + p.width / 2f, y);
             y += line;
-            if (_util.Button("Back", p.x + 52f, y))
+
+            float cx = p.x + p.width / 2f;
+            float resetY = p.y + p.height - 30f;
+            float backY = p.y + p.height - 18f;
+            if (_util.SimpleButton("Reset Defaults", cx, resetY))
+            {
+                Plugin.ResetFfbDefaults();
+            }
+            if (_util.SimpleButton("Back", cx, backY))
             {
                 _page = Page.Main;
                 return;
             }
-            y += line + sectionGap;
+
+            y += sectionGap;
 
             bool ffbEnabled = Plugin.GetFfbEnabled();
             bool? newFfbEnabled = _util.Toggle("Enable FFB", ffbEnabled, center, y);
@@ -188,12 +216,21 @@ namespace EasyDeliveryCoG920
         {
             _util.Label("Steering", p.x + p.width / 2f, y);
             y += line;
-            if (_util.Button("Back", p.x + 52f, y))
+
+            float cx = p.x + p.width / 2f;
+            float resetY = p.y + p.height - 30f;
+            float backY = p.y + p.height - 18f;
+            if (_util.SimpleButton("Reset Defaults", cx, resetY))
+            {
+                Plugin.ResetSteeringDefaults();
+            }
+            if (_util.SimpleButton("Back", cx, backY))
             {
                 _page = Page.Main;
                 return;
             }
-            y += line + sectionGap;
+
+            y += sectionGap;
 
             int range = Plugin.GetWheelRange();
             _util.ValueLabel($"{range} deg", p.x + p.width - 12f, y);
@@ -209,11 +246,11 @@ namespace EasyDeliveryCoG920
 
             float steerGain = Plugin.GetSteeringGain();
             _util.ValueLabel($"{steerGain:0.00}x", p.x + p.width - 12f, y);
-            float steerGainNorm = Mathf.InverseLerp(0.5f, 2.5f, steerGain);
+            float steerGainNorm = Mathf.InverseLerp(0.5f, 3.0f, steerGain);
             float? newSteerGainNorm = _util.Slider("Steer Sens", steerGainNorm, center, y, ref _mouseYLock);
             if (newSteerGainNorm.HasValue)
             {
-                Plugin.SetSteeringGain(Mathf.Lerp(0.5f, 2.5f, newSteerGainNorm.Value));
+                Plugin.SetSteeringGain(Mathf.Lerp(0.5f, 3.0f, newSteerGainNorm.Value));
             }
             y += line;
 
@@ -231,13 +268,68 @@ namespace EasyDeliveryCoG920
         {
             _util.Label("Bindings", p.x + p.width / 2f, y);
             y += line;
-            if (_util.Button("Back", p.x + 52f, y))
+
+            float cx = p.x + p.width / 2f;
+            float backY = p.y + p.height - 18f;
+            if (_util.SimpleButton("Back", cx, backY))
             {
                 _page = Page.Main;
                 return;
             }
+
+            y += sectionGap;
+
+            _util.Label("Axis Mapping", p.x + p.width / 2f, y);
+            y += line;
+
+            if (!Plugin.TryGetLogiState(out var state))
+            {
+                _util.Label("Wheel not detected (Logitech SDK not ready).", p.x + p.width / 2f, y);
+                return;
+            }
+
+            Plugin.AxisId steerAxis = Plugin.GetSteeringAxis();
+            Plugin.AxisId throttleAxis = Plugin.GetThrottleAxis();
+            Plugin.AxisId brakeAxis = Plugin.GetBrakeAxis();
+            Plugin.AxisId clutchAxis = Plugin.GetClutchAxis();
+
+            if (_util.CycleButton("Steering Axis", steerAxis.ToString(), center, y))
+            {
+                Plugin.SetSteeringAxis(NextAxis(steerAxis));
+                _calStep = CalStep.None;
+            }
+            y += line;
+            if (_util.CycleButton("Throttle Axis", throttleAxis.ToString(), center, y))
+            {
+                Plugin.SetThrottleAxis(NextAxis(throttleAxis));
+                _calStep = CalStep.None;
+            }
+            y += line;
+            if (_util.CycleButton("Brake Axis", brakeAxis.ToString(), center, y))
+            {
+                Plugin.SetBrakeAxis(NextAxis(brakeAxis));
+                _calStep = CalStep.None;
+            }
+
+            y += line;
+            if (_util.CycleButton("Clutch Axis", clutchAxis.ToString(), center, y))
+            {
+                Plugin.SetClutchAxis(NextAxis(clutchAxis));
+                _calStep = CalStep.None;
+            }
+
             y += line + sectionGap;
-            _util.Label("Not implemented yet.", p.x + p.width / 2f, y);
+            int rawSteer = Plugin.GetAxisValue(state, Plugin.GetSteeringAxis());
+            int rawThr = Plugin.GetAxisValue(state, Plugin.GetThrottleAxis());
+            int rawBrk = Plugin.GetAxisValue(state, Plugin.GetBrakeAxis());
+            int rawClu = Plugin.GetAxisValue(state, Plugin.GetClutchAxis());
+            _util.Label($"steer={rawSteer}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"thr={rawThr}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"brk={rawBrk}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"clu={rawClu}", p.x + p.width / 2f, y);
         }
 
         private void DrawCalibration(Rect p, float center, ref float y, float line, float sectionGap)
@@ -245,15 +337,26 @@ namespace EasyDeliveryCoG920
             _util.Label("Calibration", p.x + p.width / 2f, y);
             y += line;
 
-            if (_util.Button("Back", p.x + 52f, y))
+            float cx = p.x + p.width / 2f;
+            float backY = p.y + p.height - 18f;
+            float clearY = p.y + p.height - 30f;
+            float wizardY = p.y + p.height - 60f;
+
+            if (_util.FancyButton("Calibration Wizard", cx, wizardY))
+            {
+                _calStep = CalStep.SteeringCenter;
+                _page = Page.CalibrationWizard;
+            }
+            if (_util.SimpleButton("Clear Calibration", cx, clearY))
+            {
+                Plugin.ClearCalibration();
+                _calStep = CalStep.None;
+            }
+            if (_util.SimpleButton("Back", cx, backY))
             {
                 _calStep = CalStep.None;
                 _page = Page.Main;
                 return;
-            }
-            if (_util.Button("Clear", p.x + 124f, y))
-            {
-                Plugin.ClearCalibration();
             }
             y += line + sectionGap;
 
@@ -280,59 +383,88 @@ namespace EasyDeliveryCoG920
             y += line + sectionGap;
 
             // axis selection
-            Plugin.AxisId throttleAxis = Plugin.GetThrottleAxis();
-            Plugin.AxisId brakeAxis = Plugin.GetBrakeAxis();
-            if (_util.CycleButton("Throttle Axis", throttleAxis.ToString(), center, y))
-            {
-                Plugin.SetThrottleAxis(NextAxis(throttleAxis));
-                _calStep = CalStep.None;
-            }
+            // Axis mapping moved to the Bindings page to keep this screen focused.
+
+            // quick status helpers for pedals
+            int rawThr = Plugin.GetAxisValue(state, Plugin.GetThrottleAxis());
+            int rawBrk = Plugin.GetAxisValue(state, Plugin.GetBrakeAxis());
+            float thr = Plugin.NormalizePedal(rawThr, Plugin.PedalKind.Throttle);
+            float brk = Plugin.NormalizePedal(rawBrk, Plugin.PedalKind.Brake);
+            int rawClu = Plugin.GetAxisValue(state, Plugin.GetClutchAxis());
+            float clu = Plugin.NormalizePedal(rawClu, Plugin.PedalKind.Clutch);
+            _util.Label($"Current throttle: {thr:0.00}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"Current brake: {brk:0.00}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"Current clutch: {clu:0.00}", p.x + p.width / 2f, y);
             y += line;
-            if (_util.CycleButton("Brake Axis", brakeAxis.ToString(), center, y))
-            {
-                Plugin.SetBrakeAxis(NextAxis(brakeAxis));
-                _calStep = CalStep.None;
-            }
-            y += line + sectionGap;
+        }
 
-            // guided capture
-            if (_calStep == CalStep.None)
+        private void DrawCalibrationWizard(Rect p, float center, ref float y, float line, float sectionGap)
+        {
+            _util.Label("Calibration Wizard", p.x + p.width / 2f, y);
+            y += line;
+
+            float cx = p.x + p.width / 2f;
+            float cancelY = p.y + p.height - 18f;
+            float captureY = p.y + p.height - 30f;
+
+            if (_util.SimpleButton("Capture", cx, captureY))
             {
-                if (_util.Button("Start Guided", p.x + 140f, y))
+                if (Plugin.TryGetLogiState(out var captureState))
                 {
-                    _calStep = CalStep.SteeringCenter;
+                    CaptureStep(_calStep, captureState);
+                    _calStep = NextStep(_calStep);
+                    if (_calStep == CalStep.None)
+                    {
+                        _page = Page.Calibration;
+                    }
                 }
-                y += line;
+            }
 
-                // quick capture helpers for pedals
-                int rawThr = Plugin.GetAxisValue(state, Plugin.GetThrottleAxis());
-                int rawBrk = Plugin.GetAxisValue(state, Plugin.GetBrakeAxis());
-                float thr = Plugin.NormalizePedal(rawThr, Plugin.PedalKind.Throttle);
-                float brk = Plugin.NormalizePedal(rawBrk, Plugin.PedalKind.Brake);
-                _util.Label($"Current: thr={thr:0.00} brk={brk:0.00}", p.x + p.width / 2f, y);
-                y += line;
+            if (_util.SimpleButton("Cancel", cx, cancelY))
+            {
+                _calStep = CalStep.None;
+                _page = Page.Calibration;
+                return;
+            }
+
+            y += sectionGap;
+
+            if (!Plugin.TryGetLogiState(out var state))
+            {
+                _util.Label("Wheel not detected (Logitech SDK not ready).", p.x + p.width / 2f, y);
                 return;
             }
 
             string prompt = GetCalPrompt(_calStep);
             _util.Label(prompt, p.x + p.width / 2f, y);
-            y += line;
+            y += line + sectionGap;
 
             int rawSteer = Plugin.GetAxisValue(state, Plugin.GetSteeringAxis());
-            int rawThr2 = Plugin.GetAxisValue(state, Plugin.GetThrottleAxis());
-            int rawBrk2 = Plugin.GetAxisValue(state, Plugin.GetBrakeAxis());
-            _util.Label($"Selected raw: steer={rawSteer} thr={rawThr2} brk={rawBrk2}", p.x + p.width / 2f, y);
-            y += line;
+            int rawThr = Plugin.GetAxisValue(state, Plugin.GetThrottleAxis());
+            int rawBrk = Plugin.GetAxisValue(state, Plugin.GetBrakeAxis());
+            int rawClu = Plugin.GetAxisValue(state, Plugin.GetClutchAxis());
+            _util.Label($"steer={rawSteer}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"thr={rawThr}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"brk={rawBrk}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"clu={rawClu}", p.x + p.width / 2f, y);
+            y += line + sectionGap;
 
-            if (_util.Button("Capture", p.x + 120f, y))
-            {
-                CaptureStep(_calStep, state);
-                _calStep = NextStep(_calStep);
-            }
-            if (_util.Button("Cancel", p.x + 180f, y))
-            {
-                _calStep = CalStep.None;
-            }
+            float steerNorm = Plugin.NormalizeSteering(rawSteer);
+            float thrNorm = Plugin.NormalizePedal(rawThr, Plugin.PedalKind.Throttle);
+            float brkNorm = Plugin.NormalizePedal(rawBrk, Plugin.PedalKind.Brake);
+            float cluNorm = Plugin.NormalizePedal(rawClu, Plugin.PedalKind.Clutch);
+            _util.Label($"steer norm={steerNorm:0.00}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"thr norm={thrNorm:0.00}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"brk norm={brkNorm:0.00}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"clu norm={cluNorm:0.00}", p.x + p.width / 2f, y);
         }
 
         private static Plugin.AxisId NextAxis(Plugin.AxisId axis)

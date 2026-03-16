@@ -12,14 +12,14 @@ namespace EasyDeliveryCoG920
             _log = Logger;
 
             _enableMod = Config.Bind("General", "enable_mod", true, "Enables/disables the mod entirely.");
-            _debugLogging = Config.Bind("Logging", "debug_logging", false, "Log debug information.");
             _logDetectedDevices = Config.Bind("Debug", "log_detected_devices", true, "Log joystick names detected by Unity on startup.");
+            _debugLogging = Config.Bind("Debug", "debug_logging", false, "Log debug information.");
 
             _desktopMenuIconVisible = Config.Bind("Menu", "show_wheel_menu_icon", true, "Show/hide the Wheel Settings icon on the Main Menu.");
-            _desktopMenuIconX = Config.Bind("Menu", "wheel_menu_icon_x", "5.5", "Main Menu icon X position. Example: 5.5");
+            _desktopMenuIconX = Config.Bind("Menu", "wheel_menu_icon_x", "4", "Main Menu icon X position. Example: 4");
             _desktopMenuIconY = Config.Bind("Menu", "wheel_menu_icon_y", "3.25", "Main Menu icon Y position. Example: 3.25");
 
-            _ignoreXInputControllers = Config.Bind("Logitech", "ignore_xinput_controllers", true, "Pass 'ignoreXInputControllers' to the Logitech SDK init (recommended).");
+            _ignoreXInputControllers = Config.Bind("General", "ignore_xinput_controllers", true, "Pass 'ignoreXInputControllers' to the Logitech SDK init (recommended).");
 
             if (!_enableMod.Value)
             {

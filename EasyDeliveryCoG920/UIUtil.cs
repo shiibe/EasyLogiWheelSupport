@@ -64,6 +64,40 @@ namespace EasyDeliveryCoG920
             return false;
         }
 
+        public bool FancyButton(string title, float centerX, float y)
+        {
+            title = LocalizationDictionary.Translate(title);
+            R.fontOptions.alignment = sFancyText.FontOptions.Alignment.center;
+
+            // Measure title width (in pixels).
+            float textWidthPx = R.fput(title, centerX, -32f, 0f, 13f, 0f, -1);
+            float wTiles = textWidthPx / 8f + 1f;
+
+            float tileXCenter = centerX / 8f;
+            float tileY = y / 8f;
+
+            bool hovered = M.MouseOver((int)((tileXCenter - wTiles / 2f) * 8f), (int)(tileY * 8f), (int)((wTiles + 1f) * 8f), 24);
+            if (hovered)
+            {
+                M.mouseIcon = 128;
+                wTiles += 2f;
+                if (M.mouseButton)
+                {
+                    M.mouseIcon = 160;
+                    wTiles -= 2f;
+                }
+                if (M.mouseButtonUp)
+                {
+                    return true;
+                }
+            }
+
+            // Text (slightly inset like jobBoard).
+            R.fput(title, tileXCenter * 8f + 4f, tileY * 8f + 8f, 0f, 13f, 0f, -1);
+            M.drawBox(tileXCenter - wTiles / 2f, tileY, wTiles, 2f);
+            return false;
+        }
+
         public bool CycleButton(string name, string value, float x, float y)
         {
             name = LocalizationDictionary.Translate(name);
