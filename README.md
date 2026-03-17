@@ -1,11 +1,16 @@
 <h1>
 <p align="center">
+  <img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/icon.png" alt="Logo" width="128">
   <br>EasyLogiWheelSupport
 </h1>
   <p align="center">
     Logitech wheel support for Easy Delivery Co.
     <br />
     <a href="#about">About</a>
+    ·
+    <a href="#features">Features</a>
+    ·
+    <a href="#screenshots">Screenshots</a>
     ·
     <a href="#installation">Installation</a>
     ·
@@ -23,11 +28,35 @@ Tested on a G920, but it should work with most (if not all) modern Logitech whee
 
 This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 
-Features
+## Features
 - Wheel steering + pedals
 - Force Feedback (FFB)
 - In-game `wheel.exe` settings menu
 - Button bindings menu with optional `Modifier` (hold to bind `M+...` for extra inputs)
+
+## Screenshots
+<table>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/1.jpg" alt="Screenshot 1" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/2.jpg" alt="Screenshot 2" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/3.jpg" alt="Screenshot 3" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/4.jpg" alt="Screenshot 4" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/5.jpg" alt="Screenshot 5" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/6.jpg" alt="Screenshot 6" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/7.jpg" alt="Screenshot 7" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/8.jpg" alt="Screenshot 8" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/9.jpg" alt="Screenshot 9" width="100%"></td>
+    <td width="50%"></td>
+  </tr>
+</table>
 
 ## Installation
 Dependencies
