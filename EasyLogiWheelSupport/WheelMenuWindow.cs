@@ -53,7 +53,10 @@ namespace EasyLogiWheelSupport
             Plugin.ButtonBindAction.RadioPower,
             Plugin.ButtonBindAction.RadioScanRight,
             Plugin.ButtonBindAction.RadioScanLeft,
-            Plugin.ButtonBindAction.RadioScanToggle
+            Plugin.ButtonBindAction.RadioScanToggle,
+            Plugin.ButtonBindAction.ToggleGearbox,
+            Plugin.ButtonBindAction.ShiftUp,
+            Plugin.ButtonBindAction.ShiftDown
         };
 
         private enum CalStep
@@ -75,10 +78,11 @@ namespace EasyLogiWheelSupport
             Main = 0,
             Ffb = 1,
             Steering = 2,
-            Calibration = 3,
-            CalibrationWizard = 4,
-            Bindings = 5,
-            BindingCapture = 6
+            Transmission = 3,
+            Calibration = 4,
+            CalibrationWizard = 5,
+            Bindings = 6,
+            BindingCapture = 7
         }
 
         public void FrameUpdate(DesktopDotExe.WindowView view)
@@ -165,6 +169,10 @@ namespace EasyLogiWheelSupport
             {
                 DrawSteering(p, center, ref y, line, sectionGap);
             }
+            else if (_page == Page.Transmission)
+            {
+                DrawTransmission(p, center, ref y, line, sectionGap);
+            }
             else if (_page == Page.Calibration)
             {
                 DrawCalibration(p, center, ref y, line, sectionGap);
@@ -197,6 +205,11 @@ namespace EasyLogiWheelSupport
             if (_util.FancyButton("Steering", cx, y))
             {
                 _page = Page.Steering;
+            }
+            y += btnGap;
+            if (_util.FancyButton("Transmission", cx, y))
+            {
+                _page = Page.Transmission;
             }
             y += btnGap;
             if (_util.FancyButton("Calibration", cx, y))
@@ -391,7 +404,10 @@ namespace EasyLogiWheelSupport
                 DrawBindingsButtonsPage(p, center, ref y, line, new[]
                 {
                     Plugin.ButtonBindAction.Headlights,
-                    Plugin.ButtonBindAction.Horn
+                    Plugin.ButtonBindAction.Horn,
+                    Plugin.ButtonBindAction.ToggleGearbox,
+                    Plugin.ButtonBindAction.ShiftUp,
+                    Plugin.ButtonBindAction.ShiftDown
                 });
                 return;
             }
@@ -403,6 +419,78 @@ namespace EasyLogiWheelSupport
                 Plugin.ButtonBindAction.RadioScanLeft,
                 Plugin.ButtonBindAction.RadioScanToggle
             });
+        }
+
+        private void DrawTransmission(Rect p, float center, ref float y, float line, float sectionGap)
+        {
+            _util.Label("Transmission", p.x + p.width / 2f, y);
+            y += line;
+
+            float cx = p.x + p.width / 2f;
+            float backY = p.y + p.height - 18f;
+            if (_util.SimpleButton("Back", cx, backY))
+            {
+                _page = Page.Main;
+                return;
+            }
+
+            y += sectionGap;
+
+            bool manual = Plugin.GetManualTransmissionEnabled();
+            bool? newManual = _util.Toggle("Manual Trans", manual, center, y);
+            if (newManual.HasValue)
+            {
+                Plugin.SetManualTransmissionEnabled(newManual.Value);
+            }
+            y += line;
+
+            bool hudSpeed = Plugin.GetHudShowSpeed();
+            bool? newHudSpeed = _util.Toggle("HUD Speed", hudSpeed, center, y);
+            if (newHudSpeed.HasValue)
+            {
+                Plugin.SetHudShowSpeed(newHudSpeed.Value);
+            }
+            y += line;
+
+            var units = Plugin.GetHudSpeedUnit();
+            if (_util.CycleButtonRaw("Units", Plugin.GetHudSpeedUnitLabel(units), center, y))
+            {
+                Plugin.SetHudSpeedUnit(Plugin.NextHudSpeedUnit(units));
+            }
+            y += line;
+
+            bool hudTach = Plugin.GetHudShowTach();
+            bool? newHudTach = _util.Toggle("HUD Tach", hudTach, center, y, manual);
+            if (newHudTach.HasValue)
+            {
+                Plugin.SetHudShowTach(newHudTach.Value);
+            }
+            y += line;
+
+            bool hudGear = Plugin.GetHudShowGear();
+            bool? newHudGear = _util.Toggle("HUD Gear", hudGear, center, y, manual);
+            if (newHudGear.HasValue)
+            {
+                Plugin.SetHudShowGear(newHudGear.Value);
+            }
+            y += line + sectionGap;
+
+            bool exclusive = Plugin.GetExclusiveWheelInputEnabled();
+            bool? newExclusive = _util.Toggle("Exclusive Input", exclusive, center, y);
+            if (newExclusive.HasValue)
+            {
+                Plugin.SetExclusiveWheelInputEnabled(newExclusive.Value);
+            }
+            y += line + sectionGap;
+
+            if (Plugin.GetManualTransmissionEnabled())
+            {
+                _util.Label("Gear: " + Plugin.GetManualGearLabel(), p.x + p.width / 2f, y);
+            }
+            else
+            {
+                _util.Label("Gear: Auto", p.x + p.width / 2f, y);
+            }
         }
 
         private static BindingsPage NextBindingsPage(BindingsPage p)

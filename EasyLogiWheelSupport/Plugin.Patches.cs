@@ -32,9 +32,16 @@ namespace EasyLogiWheelSupport
             PatchByName(harmony, "DesktopDotExe", "Setup", postfix: nameof(DesktopDotExe_Setup_Postfix));
             PatchByName(harmony, "sCarController", "Update", prefix: nameof(SCarController_Update_Prefix));
             PatchByName(harmony, "sInputManager", "GetInput", postfix: nameof(SInputManager_GetInput_Postfix));
+            PatchByName(harmony, "sHUD", "RadioDisplay", postfix: nameof(SHUD_RadioDisplay_Postfix));
+
+            // Optional sound tweaks in manual mode.
+            PatchByName(harmony, "sEngineSFX", "Update", postfix: nameof(SEngineSFX_Update_Postfix));
+            PatchByName(harmony, "EngineSFX", "Update", postfix: nameof(SEngineSFX_Update_Postfix));
+
 
             DetectWheelOnce();
             TryInitLogitech();
+            _manualTransmissionEnabled = GetManualTransmissionEnabled();
             _log.LogInfo("EasyLogiWheelSupport loaded.");
         }
 
@@ -53,6 +60,34 @@ namespace EasyLogiWheelSupport
             if (!ShouldApply() || __instance == null)
             {
                 return;
+            }
+
+            // When testing with a controller plugged in, the game's default bindings can interfere.
+            // Optional exclusive mode: clear all non-wheel inputs, then re-inject wheel bindings.
+            if (GetExclusiveWheelInputEnabled())
+            {
+                __instance.driveInput = Vector2.zero;
+                __instance.playerInput = Vector2.zero;
+                __instance.mouseInput = Vector2.zero;
+                __instance.radioInput = Vector2.zero;
+                __instance.cameraLook = Vector2.zero;
+
+                __instance.radioPressed = false;
+                __instance.selectPressed = false;
+                __instance.selectReleased = false;
+                __instance.backPressed = false;
+                __instance.backReleased = false;
+                __instance.breakPressed = false;
+                __instance.inventoryPressed = false;
+                __instance.inventoryReleased = false;
+                __instance.inventoryHeld = false;
+                __instance.headlightsPressed = false;
+                __instance.cameraPressed = false;
+                __instance.resetPressed = false;
+                __instance.resetHeld = false;
+                __instance.pausePressed = false;
+                __instance.mapPressed = false;
+                __instance.hornPressed = false;
             }
 
             // Allow wheel buttons to navigate menus even while paused/locked.
@@ -82,7 +117,25 @@ namespace EasyLogiWheelSupport
             float throttle = NormalizePedal(rawThrottle, PedalKind.Throttle);
             float brake = NormalizePedal(rawBrake, PedalKind.Brake);
 
-            float accel = Mathf.Clamp(throttle - brake, -1f, 1f);
+            _lastThrottle01 = Mathf.Clamp01(throttle);
+            if (GetManualTransmissionEnabled() && GetManualGear() == 0)
+            {
+                _neutralRev01 = Mathf.Lerp(_neutralRev01, _lastThrottle01, Time.deltaTime * 8f);
+            }
+            else
+            {
+                _neutralRev01 = Mathf.Lerp(_neutralRev01, 0f, Time.deltaTime * 6f);
+            }
+
+            float accel;
+            if (GetManualTransmissionEnabled())
+            {
+                accel = Mathf.Clamp(ComputeManualAccel(throttle), -1f, 1f);
+            }
+            else
+            {
+                accel = Mathf.Clamp(throttle - brake, -1f, 1f);
+            }
             __instance.driveInput = new Vector2(steering, accel);
             __instance.breakPressed = brake > 0.1f;
 
@@ -159,6 +212,38 @@ namespace EasyLogiWheelSupport
             if (IsWheelMenuActive())
             {
                 return;
+            }
+
+            // Transmission (manual gearbox).
+            // Only while driving; avoid menu/walking conflicts.
+            if (!_isInWalkingMode && !PauseSystem.paused && !input.lockInput)
+            {
+                var bind = GetBinding(layer, ButtonBindAction.ToggleGearbox);
+                if (bind.Kind != BindingKind.None && Pressed(bind))
+                {
+                    ToggleManualTransmission();
+                }
+
+                var up = GetBinding(layer, ButtonBindAction.ShiftUp);
+                if (up.Kind != BindingKind.None && Pressed(up))
+                {
+                    if (!GetManualTransmissionEnabled())
+                    {
+                        SetManualTransmissionEnabled(true);
+                    }
+                    ShiftManualGear(+1);
+                }
+
+                var down = GetBinding(layer, ButtonBindAction.ShiftDown);
+                if (down.Kind != BindingKind.None && Pressed(down))
+                {
+                    if (!GetManualTransmissionEnabled())
+                    {
+                        SetManualTransmissionEnabled(true);
+                    }
+                    ShiftManualGear(-1);
+                }
+
             }
 
             // POV -> walking movement.
@@ -364,6 +449,8 @@ namespace EasyLogiWheelSupport
                 return;
             }
 
+            _currentCar = car;
+
             _isInWalkingMode = car.GuyActive;
 
             if (car.rb != null)
@@ -389,6 +476,195 @@ namespace EasyLogiWheelSupport
                 }
                 _isOffRoad = offroad;
                 _isSliding = totalSlide > 2.0f;
+            }
+        }
+
+        private static void SHUD_RadioDisplay_Postfix(object __instance)
+        {
+            if (!ShouldApply() || __instance == null)
+            {
+                return;
+            }
+
+            var hud = __instance as sHUD;
+            if (hud == null)
+            {
+                return;
+            }
+
+            // Only while driving.
+            var car = UnityEngine.Object.FindFirstObjectByType<sCarController>();
+            if (car == null || car.GuyActive)
+            {
+                return;
+            }
+
+            // MiniRenderer is a private field in sHUD.
+            var rField = AccessTools.Field(typeof(sHUD), "R");
+            var R = rField != null ? rField.GetValue(hud) as MiniRenderer : null;
+            if (R == null)
+            {
+                return;
+            }
+
+            bool showSpeed = GetHudShowSpeed();
+            bool manualEnabled = GetManualTransmissionEnabled();
+            bool showTach = manualEnabled && GetHudShowTach();
+            bool showGear = manualEnabled && GetHudShowGear();
+            if (!showSpeed && !showTach && !showGear)
+            {
+                return;
+            }
+
+            // Place under the default money/time readout area.
+            // sHUD uses vector=(68, height-64) and draws money at y-2, time at y+10.
+            float x = 68f;
+            float y = R.height - 64f + 22f;
+
+            void PutLeft(string text, float leftX, float yy)
+            {
+                if (!string.IsNullOrEmpty(text))
+                {
+                    R.put(text, leftX, yy);
+                }
+            }
+
+            if (showSpeed)
+            {
+                float spd = ConvertSpeedForHud(_currentSpeedKmh);
+                int spdInt = Mathf.Max(0, Mathf.RoundToInt(spd));
+                string unit = GetHudSpeedUnitLabel(GetHudSpeedUnit());
+                PutLeft($"{spdInt}{unit}", x, y);
+                y += 10f;
+            }
+            if (showTach)
+            {
+                PutLeft($"{Mathf.RoundToInt(GetEstimatedRpm())}rpm", x, y);
+                y += 10f;
+            }
+            if (showGear)
+            {
+                // Example: R P (1) 2 3 4 5
+                int g = GetManualGear();
+
+                string GearToken(string t, bool selected)
+                {
+                    return selected ? "(" + t + ")" : t;
+                }
+
+                string line =
+                    GearToken("R", g < 0) +
+                    " " + GearToken("N", g == 0) +
+                    " " + GearToken("1", g == 1) +
+                    " " + GearToken("2", g == 2) +
+                    " " + GearToken("3", g == 3) +
+                    " " + GearToken("4", g == 4) +
+                    " " + GearToken("5", g == 5);
+
+                PutLeft(line, x, y);
+            }
+        }
+
+
+        private static Type _engineSfxRuntimeType;
+        private static System.Reflection.FieldInfo _engineCarField;
+        private static System.Reflection.FieldInfo _engineIdleField;
+        private static System.Reflection.FieldInfo _engineDriveField;
+        private static System.Reflection.FieldInfo _engineIntenseField;
+        private static System.Reflection.FieldInfo _engineDistortionField;
+
+        private static void EnsureEngineSfxRefs(object instance)
+        {
+            if (instance == null)
+            {
+                return;
+            }
+
+            var t = instance.GetType();
+            if (_engineSfxRuntimeType == t)
+            {
+                return;
+            }
+
+            _engineSfxRuntimeType = t;
+            _engineCarField = AccessTools.Field(t, "car");
+            _engineIdleField = AccessTools.Field(t, "idle");
+            _engineDriveField = AccessTools.Field(t, "drive");
+            _engineIntenseField = AccessTools.Field(t, "intense");
+            _engineDistortionField = AccessTools.Field(t, "distortionFilter");
+        }
+
+        private static void SEngineSFX_Update_Postfix(object __instance)
+        {
+            if (!ShouldApply() || __instance == null || !GetManualTransmissionEnabled())
+            {
+                return;
+            }
+
+            EnsureEngineSfxRefs(__instance);
+
+            var car = _engineCarField != null ? _engineCarField.GetValue(__instance) as sCarController : null;
+            if (car == null || car.GuyActive)
+            {
+                return;
+            }
+
+            // Only adjust the active car.
+            if (_currentCar != null && !ReferenceEquals(car, _currentCar))
+            {
+                return;
+            }
+
+            float rpmNorm = GetEstimatedRpmNormForSound();
+            float over = Mathf.Clamp01((rpmNorm - 1f) / 0.2f);
+            float neutral = (_manualGear == 0) ? Mathf.Clamp01(_neutralRev01) : 0f;
+
+            // Apply pitch boost to all loops so revving in Neutral is audible.
+            float pitchMul = 1f + neutral * 0.85f + over * 0.35f;
+
+            var idle = _engineIdleField != null ? _engineIdleField.GetValue(__instance) as AudioSource : null;
+            var drive = _engineDriveField != null ? _engineDriveField.GetValue(__instance) as AudioSource : null;
+            var intense = _engineIntenseField != null ? _engineIntenseField.GetValue(__instance) as AudioSource : null;
+            if (idle != null)
+            {
+                idle.pitch *= pitchMul;
+            }
+            if (drive != null)
+            {
+                drive.pitch *= pitchMul;
+            }
+            if (intense != null)
+            {
+                intense.pitch *= pitchMul;
+            }
+
+            // In neutral, also push volume up so it actually sounds like revving.
+            if (neutral > 0.01f)
+            {
+                if (drive != null)
+                {
+                    drive.volume = Mathf.Max(drive.volume, neutral * 0.55f);
+                }
+                if (intense != null)
+                {
+                    intense.volume = Mathf.Max(intense.volume, neutral * 0.35f);
+                }
+            }
+
+            // Extra distortion when over-revving (simulated).
+            var dist = _engineDistortionField != null ? _engineDistortionField.GetValue(__instance) as AudioDistortionFilter : null;
+            if (dist != null)
+            {
+                float target = dist.distortionLevel;
+                if (over > 0f)
+                {
+                    target = Mathf.Max(target, 0.10f + over * 0.55f);
+                }
+                if (neutral > 0.1f)
+                {
+                    target = Mathf.Max(target, 0.05f + neutral * 0.10f);
+                }
+                dist.distortionLevel = target;
             }
         }
     }

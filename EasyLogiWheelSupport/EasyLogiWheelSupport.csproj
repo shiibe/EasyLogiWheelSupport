@@ -51,6 +51,11 @@
             <Private>false</Private>
         </Reference>
 
+        <Reference Include="UnityEngine.AudioModule">
+            <HintPath>$(GameDir)\EasyDeliveryCo_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+
         <Reference Include="Assembly-CSharp">
             <HintPath>$(GameDir)\EasyDeliveryCo_Data\Managed\Assembly-CSharp.dll</HintPath>
             <Private>false</Private>

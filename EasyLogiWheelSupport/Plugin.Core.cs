@@ -64,6 +64,19 @@ namespace EasyLogiWheelSupport
         internal const string PrefKeyBrakeAxis = "G920Axis_Brake";
         internal const string PrefKeyClutchAxis = "G920Axis_Clutch";
 
+        internal const string PrefKeyManualTransmissionEnabled = "G920ManualTransmission";
+        internal const string PrefKeyHudShowSpeed = "G920HudShowSpeed";
+        internal const string PrefKeyHudShowTach = "G920HudShowTach";
+        internal const string PrefKeyHudShowGear = "G920HudShowGear";
+        internal const string PrefKeyHudSpeedUnits = "G920HudSpeedUnits";
+        internal const string PrefKeyExclusiveWheelInput = "G920ExclusiveWheelInput";
+
+        internal enum SpeedUnit
+        {
+            Kmh = 0,
+            Mph = 1
+        }
+
         internal enum ButtonBindAction
         {
             InteractOk = 0,
@@ -79,7 +92,11 @@ namespace EasyLogiWheelSupport
             RadioPower = 9,
             RadioScanToggle = 10,
             RadioScanLeft = 11,
-            RadioScanRight = 12
+            RadioScanRight = 12,
+
+            ToggleGearbox = 13,
+            ShiftUp = 14,
+            ShiftDown = 15
         }
 
         internal enum BindingLayer
@@ -321,6 +338,12 @@ namespace EasyLogiWheelSupport
                     return "Prev Ch";
                 case ButtonBindAction.RadioScanRight:
                     return "Next Ch";
+                case ButtonBindAction.ToggleGearbox:
+                    return "Gearbox";
+                case ButtonBindAction.ShiftUp:
+                    return "Shift Up";
+                case ButtonBindAction.ShiftDown:
+                    return "Shift Down";
                 default:
                     return action.ToString();
             }
@@ -558,6 +581,220 @@ namespace EasyLogiWheelSupport
         private static float _currentSpeedKmh;
         private static bool _isOffRoad;
         private static bool _isSliding;
+
+        private static sCarController _currentCar;
+
+        private static float _lastThrottle01;
+        private static float _neutralRev01;
+
+        private static bool _manualTransmissionEnabled;
+        private const int ManualMaxGear = 5;
+        private static int _manualGear = 1; // -1=R, 0=N, 1..ManualMaxGear
+
+        internal static bool GetManualTransmissionEnabled()
+        {
+            return PlayerPrefs.GetInt(PrefKeyManualTransmissionEnabled, 0) != 0;
+        }
+
+        internal static void SetManualTransmissionEnabled(bool enabled)
+        {
+            _manualTransmissionEnabled = enabled;
+            PlayerPrefs.SetInt(PrefKeyManualTransmissionEnabled, enabled ? 1 : 0);
+            if (!enabled)
+            {
+                // Keep gear state sane when leaving manual mode.
+                _manualGear = Mathf.Clamp(_manualGear, 1, ManualMaxGear);
+            }
+            else
+            {
+                if (_manualGear == 0)
+                {
+                    _manualGear = 1;
+                }
+            }
+        }
+
+        internal static int GetManualGear()
+        {
+            return _manualGear;
+        }
+
+        internal static string GetManualGearLabel()
+        {
+            if (_manualGear < 0) return "R";
+            if (_manualGear == 0) return "N";
+            return _manualGear.ToString();
+        }
+
+        internal static bool GetHudShowSpeed()
+        {
+            return PlayerPrefs.GetInt(PrefKeyHudShowSpeed, 1) != 0;
+        }
+
+        internal static void SetHudShowSpeed(bool enabled)
+        {
+            PlayerPrefs.SetInt(PrefKeyHudShowSpeed, enabled ? 1 : 0);
+        }
+
+        internal static SpeedUnit GetHudSpeedUnit()
+        {
+            return (SpeedUnit)Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyHudSpeedUnits, 0), 0, 1);
+        }
+
+        internal static void SetHudSpeedUnit(SpeedUnit unit)
+        {
+            PlayerPrefs.SetInt(PrefKeyHudSpeedUnits, (int)unit);
+        }
+
+        internal static SpeedUnit NextHudSpeedUnit(SpeedUnit unit)
+        {
+            return unit == SpeedUnit.Kmh ? SpeedUnit.Mph : SpeedUnit.Kmh;
+        }
+
+        internal static string GetHudSpeedUnitLabel(SpeedUnit unit)
+        {
+            return unit == SpeedUnit.Mph ? "mph" : "km/h";
+        }
+
+        internal static float ConvertSpeedForHud(float kmh)
+        {
+            SpeedUnit unit = GetHudSpeedUnit();
+            if (unit == SpeedUnit.Mph)
+            {
+                return kmh * 0.6213712f;
+            }
+            return kmh;
+        }
+
+        internal static bool GetHudShowTach()
+        {
+            return PlayerPrefs.GetInt(PrefKeyHudShowTach, 1) != 0;
+        }
+
+        internal static void SetHudShowTach(bool enabled)
+        {
+            PlayerPrefs.SetInt(PrefKeyHudShowTach, enabled ? 1 : 0);
+        }
+
+        internal static bool GetHudShowGear()
+        {
+            return PlayerPrefs.GetInt(PrefKeyHudShowGear, 1) != 0;
+        }
+
+        internal static void SetHudShowGear(bool enabled)
+        {
+            PlayerPrefs.SetInt(PrefKeyHudShowGear, enabled ? 1 : 0);
+        }
+
+        internal static bool GetExclusiveWheelInputEnabled()
+        {
+            return PlayerPrefs.GetInt(PrefKeyExclusiveWheelInput, 0) != 0;
+        }
+
+        internal static void SetExclusiveWheelInputEnabled(bool enabled)
+        {
+            PlayerPrefs.SetInt(PrefKeyExclusiveWheelInput, enabled ? 1 : 0);
+        }
+
+        internal static void ToggleManualTransmission()
+        {
+            SetManualTransmissionEnabled(!GetManualTransmissionEnabled());
+        }
+
+        internal static void ShiftManualGear(int delta)
+        {
+            _manualGear = Mathf.Clamp(_manualGear + delta, -1, ManualMaxGear);
+        }
+
+        private static float GetMaxSpeedForGearKmh(int gear)
+        {
+            // Simple virtual gearbox: speeds chosen to feel plausible with EDCo truck speeds.
+            switch (gear)
+            {
+                case 1:
+                    return 40f;
+                case 2:
+                    return 80f;
+                case 3:
+                    return 130f;
+                case 4:
+                    return 180f;
+                case 5:
+                    return 230f;
+                default:
+                    return 30f;
+            }
+        }
+
+        internal static float GetEstimatedRpm()
+        {
+            const float idle = 900f;
+            const float redline = 6500f;
+
+            float t;
+            if (!GetManualTransmissionEnabled())
+            {
+                // Automatic: just map speed into a typical RPM band.
+                t = Mathf.Clamp01(_currentSpeedKmh / 140f);
+                return Mathf.Lerp(idle, redline, t);
+            }
+
+            if (_manualGear == 0)
+            {
+                // Neutral: allow revving.
+                return Mathf.Lerp(idle, redline, _neutralRev01);
+            }
+
+            float max = GetMaxSpeedForGearKmh(Mathf.Abs(_manualGear));
+            t = Mathf.Clamp01(_currentSpeedKmh / Mathf.Max(1f, max));
+            return Mathf.Lerp(idle, redline, t);
+        }
+
+        internal static float GetEstimatedRpmNormForSound()
+        {
+            // Return 0..1.2-ish (allow a little over-rev for sound).
+            if (!GetManualTransmissionEnabled())
+            {
+                return Mathf.Clamp01(_currentSpeedKmh / 140f);
+            }
+
+            if (_manualGear == 0)
+            {
+                _neutralRev01 = Mathf.Lerp(_neutralRev01, Mathf.Clamp01(_lastThrottle01), Time.deltaTime * 8f);
+                return Mathf.Clamp(_neutralRev01, 0f, 1.2f);
+            }
+
+            float max = GetMaxSpeedForGearKmh(Mathf.Abs(_manualGear));
+            float t = _currentSpeedKmh / Mathf.Max(1f, max);
+            return Mathf.Clamp(t, 0f, 1.2f);
+        }
+
+        internal static float ComputeManualAccel(float gas)
+        {
+            if (!GetManualTransmissionEnabled())
+            {
+                return gas;
+            }
+
+            if (_manualGear == 0)
+            {
+                return 0f;
+            }
+
+            if (_manualGear < 0)
+            {
+                return -Mathf.Clamp01(gas);
+            }
+
+            float speed = Mathf.Max(0f, _currentSpeedKmh);
+            float max = GetMaxSpeedForGearKmh(_manualGear);
+
+            // Torque falls off near top of each gear.
+            float band = Mathf.Clamp01(1f - (speed / Mathf.Max(1f, max)));
+            float torque = Mathf.Lerp(0.35f, 1.15f, band);
+            return Mathf.Clamp01(gas) * torque;
+        }
+
 
         private static int _wheelLastUpdateFrame;
         private static float _wheelLastUpdateTime;

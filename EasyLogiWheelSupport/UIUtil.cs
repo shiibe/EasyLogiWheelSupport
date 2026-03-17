@@ -15,6 +15,18 @@ namespace EasyLogiWheelSupport
             R.fput(name, x, y);
         }
 
+        // Note: The game's HUD text pipeline does not support per-text colors.
+        // These helpers provide a consistent "good/bad" marker without color.
+        public void LabelOk(string name, float x, float y)
+        {
+            Label("+ " + name, x, y);
+        }
+
+        public void LabelErr(string name, float x, float y)
+        {
+            Label("! " + name, x, y);
+        }
+
         public void ValueLabel(string value, float x, float y)
         {
             R.fontOptions.alignment = sFancyText.FontOptions.Alignment.right;
@@ -168,11 +180,17 @@ namespace EasyLogiWheelSupport
 
         public bool? Toggle(string name, bool state, float x, float y)
         {
+            return Toggle(name, state, x, y, true);
+        }
+
+        public bool? Toggle(string name, bool state, float x, float y, bool enabled)
+        {
             name = LocalizationDictionary.Translate(name);
             bool? result = null;
             string text = "[" + (state ? "on" : "off") + "]";
             R.put(text, x + 4f, y);
-            if (M.MouseOver((int)x - 2, (int)y, text.Length * 8 + 4, 8))
+
+            if (enabled && M.MouseOver((int)x - 2, (int)y, text.Length * 8 + 4, 8))
             {
                 M.mouseIcon = 128;
                 name = ">" + name;
@@ -184,6 +202,11 @@ namespace EasyLogiWheelSupport
                 {
                     result = !state;
                 }
+            }
+
+            if (!enabled)
+            {
+                name = "(" + name + ")";
             }
             R.fontOptions.alignment = sFancyText.FontOptions.Alignment.right;
             R.fput(name, x - 4f, y);
