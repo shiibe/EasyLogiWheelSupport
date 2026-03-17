@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
@@ -10,8 +9,6 @@ namespace EasyLogiWheelSupport
     {
         private void Awake()
         {
-            TryMigrateConfigFile();
-
             _log = Logger;
 
             _enableMod = Config.Bind("General", "enable_mod", true, "Enables/disables the mod entirely.");
@@ -39,47 +36,6 @@ namespace EasyLogiWheelSupport
             DetectWheelOnce();
             TryInitLogitech();
             _log.LogInfo("EasyLogiWheelSupport loaded.");
-        }
-
-        private void TryMigrateConfigFile()
-        {
-            try
-            {
-                string newPath = Config?.ConfigFilePath;
-                if (string.IsNullOrWhiteSpace(newPath))
-                {
-                    return;
-                }
-
-                string dir = Path.GetDirectoryName(newPath);
-                if (string.IsNullOrWhiteSpace(dir))
-                {
-                    return;
-                }
-
-                string oldPath1 = Path.Combine(dir, "shibe.easydeliveryco.g920.cfg");
-                string oldPath2 = Path.Combine(dir, "shibe.easydeliveryco.wheel.cfg");
-                string source = null;
-                if (File.Exists(oldPath2))
-                {
-                    source = oldPath2;
-                }
-                else if (File.Exists(oldPath1))
-                {
-                    source = oldPath1;
-                }
-
-                if (source != null && !File.Exists(newPath))
-                {
-                    Directory.CreateDirectory(dir);
-                    File.Copy(source, newPath);
-                    Logger.LogInfo($"Migrated config: {Path.GetFileName(source)} -> {Path.GetFileName(newPath)}");
-                }
-            }
-            catch (Exception e)
-            {
-                Logger.LogWarning($"Config migration failed: {e.GetType().Name}: {e.Message}");
-            }
         }
 
         private void Update()
