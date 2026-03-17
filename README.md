@@ -1,6 +1,6 @@
 <h1>
 <p align="center">
-  <img src="assets/icon.png" alt="Logo" width="128">
+  <img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/icon.png" alt="Logo" width="128">
   <br>EasyLogiWheelSupport
 </h1>
   <p align="center">
@@ -56,24 +56,24 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 ## Screenshots
 <table>
   <tr>
-    <td width="50%"><img src="assets/screenshots/1.jpg" alt="Screenshot 1" width="100%"></td>
-    <td width="50%"><img src="assets/screenshots/2.jpg" alt="Screenshot 2" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/1.jpg" alt="Screenshot 1" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/2.jpg" alt="Screenshot 2" width="100%"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="assets/screenshots/3.jpg" alt="Screenshot 3" width="100%"></td>
-    <td width="50%"><img src="assets/screenshots/4.jpg" alt="Screenshot 4" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/3.jpg" alt="Screenshot 3" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/4.jpg" alt="Screenshot 4" width="100%"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="assets/screenshots/5.jpg" alt="Screenshot 5" width="100%"></td>
-    <td width="50%"><img src="assets/screenshots/6.jpg" alt="Screenshot 6" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/5.jpg" alt="Screenshot 5" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/6.jpg" alt="Screenshot 6" width="100%"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="assets/screenshots/7.jpg" alt="Screenshot 7" width="100%"></td>
-    <td width="50%"><img src="assets/screenshots/8.jpg" alt="Screenshot 8" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/7.jpg" alt="Screenshot 7" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/8.jpg" alt="Screenshot 8" width="100%"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="assets/screenshots/9.jpg" alt="Screenshot 9" width="100%"></td>
-    <td width="50%"><img src="assets/screenshots/10.jpg" alt="Screenshot 10" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/9.jpg" alt="Screenshot 9" width="100%"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/screenshots/10.jpg" alt="Screenshot 10" width="100%"></td>
   </tr>
 </table>
 
@@ -132,4 +132,4 @@ Calibration
 
 ## Build
 - Build: `dotnet build EasyLogiWheelSupport/EasyLogiWheelSupport.csproj -c Release`
-- Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 1.0.0`
+- Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 1.0.1`
