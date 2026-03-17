@@ -1,3 +1,9 @@
+## 1.0.2
+- Update calibration UI copy/placement and wheel-not-detected messaging.
+- Fix FancyButton centering.
+- Add README config option list.
+- Add repo URL to Thunderstore manifest.
+
 ## 1.0.1
 - Fix README asset links for Thunderstore.
 

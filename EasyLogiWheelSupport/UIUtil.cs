@@ -94,10 +94,12 @@ namespace EasyLogiWheelSupport
             float textWidthPx = R.fput(title, centerX, -32f, 0f, 13f, 0f, -1);
             float wTiles = textWidthPx / 8f + 1f;
 
-            float tileXCenter = centerX / 8f;
+            // Tile drawing is offset by +4px (half-tile), so shift the pixel center
+            // back by 4px when converting to tile coordinates.
+            float tileXCenter = (centerX - 4f) / 8f;
             float tileY = y / 8f;
 
-            bool hovered = M.MouseOver((int)((tileXCenter - wTiles / 2f) * 8f), (int)(tileY * 8f), (int)((wTiles + 1f) * 8f), 24);
+            bool hovered = M.MouseOver((int)((tileXCenter - wTiles / 2f) * 8f + 4f), (int)(tileY * 8f), (int)((wTiles + 1f) * 8f), 24);
             if (hovered)
             {
                 M.mouseIcon = 128;
@@ -113,7 +115,7 @@ namespace EasyLogiWheelSupport
                 }
             }
 
-            // Text (slightly inset like jobBoard).
+            // Text (pixel-centered).
             R.fput(title, tileXCenter * 8f + 4f, tileY * 8f + 8f, 0f, 13f, 0f, -1);
             M.drawBox(tileXCenter - wTiles / 2f, tileY, wTiles, 2f);
             return false;

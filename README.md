@@ -8,11 +8,9 @@
     <br />
     <a href="#about">About</a>
     ·
-    <a href="#what-it-does">What it does</a>
+    <a href="#features">Features</a>
     ·
     <a href="#compatibility">Compatibility</a>
-    ·
-    <a href="#features">Features</a>
     ·
     <a href="#screenshots">Screenshots</a>
     ·
@@ -36,22 +34,17 @@ Tested on a G920, but it should work with most (if not all) modern Logitech whee
 
 This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 
-## What it does
-- Adds wheel + pedal input while driving
-- Adds Force Feedback (optional)
-- Adds an in-game settings panel (`wheel.exe`) since the game has no native bind menu
-
-## Compatibility
-- Intended for modern Logitech wheels supported by Logitech G HUB / LGS.
-- Tested on: G920
-- Likely compatible: G29/G923 and similar Logitech wheels (not guaranteed).
-
 ## Features
 - Wheel steering + pedals
 - Force Feedback (FFB)
 - In-game `wheel.exe` settings menu
 - Button bindings menu with optional `Modifier` (hold to bind `M+...` for extra inputs)
 - D-pad support: menus (cursor) + on-foot movement (8-way)
+
+## Compatibility
+- Intended for modern Logitech wheels supported by Logitech G HUB / LGS.
+- Tested on: G920
+- Likely compatible: G29/G923 and similar Logitech wheels (not guaranteed).
 
 ## Screenshots
 <table>
@@ -78,58 +71,66 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 </table>
 
 ## Installation
-Dependencies
+**Dependencies**
 - `BepInEx-BepInExPack-5.4.2304`
 
-FFB
+**Force Feedback (FFB)**
 - Install Logitech G HUB (or older Logitech Gaming Software) so the wheel drivers/components are present.
 - `LogitechSteeringWheelEnginesWrapper.dll` must be alongside the plugin DLL (the build/package includes it).
 
-Install
+**Install**
 - r2modman/Thunderstore: install and launch the game
 - Manual: copy `EasyLogiWheelSupport.dll` to `BepInEx/plugins/EasyLogiWheelSupport/`
 - FFB DLL: make sure `LogitechSteeringWheelEnginesWrapper.dll` is alongside `EasyLogiWheelSupport.dll`
 
-Quick start
+**Quick start**
 1. Install the mod and start the game once.
-2. From the main menu, click `wheel.exe`.
+2. From the main menu, click `wheel.exe` to open the settings menu.
 3. Go to `Axis Mapping` and confirm steering/throttle/brake/clutch axes look right.
-4. If pedals are wrong or stuck, run `Calibration Wizard`.
+4. If pedals are wrong or stuck, run `Calibration -> Calibrate` in the `wheel.exe` menu.
 5. Go to `Bindings` and set `Modifier` + your button bindings.
 
 ## Configuration
 - Config file: `BepInEx/config/shibe.easydeliveryco.logiwheel.cfg`
 
+**General**
+- `enable_mod` (bool, default: `true`): Enables/disables the mod entirely.
+- `ignore_xinput_controllers` (bool, default: `true`): Pass `ignoreXInputControllers` to the Logitech SDK init (recommended).
+
+**Menu**
+- `show_wheel_menu_icon` (bool, default: `true`): Show/hide the Wheel Settings icon on the Main Menu.
+- `wheel_menu_icon_x` (string, default: `"4"`): Main Menu icon X position. Example: `4`
+- `wheel_menu_icon_y` (string, default: `"3.25"`): Main Menu icon Y position. Example: `3.25`
+
+**Debug**
+- `log_detected_devices` (bool, default: `true`): Log joystick names detected by Unity on startup.
+- `debug_logging` (bool, default: `false`): Log debug information.
+
 ## In-game menu
 - Click `wheel.exe` in the main menu to adjust wheel/FFB/settings.
 
-Bindings
-- `wheel.exe` -> `Bindings`
-- Use `Prev` / `Next` at the bottom to switch pages.
-- Set `Modifier` first (optional).
-- When binding an action: hold `Modifier` to set an `M+...` binding (shown as `M+But. N` or `M+DP ...`).
-- If you try to reuse an input, you'll get a warning and can `Replace` (unbinds the old one).
-- Pages: `Global`, `Vehicle`, `Radio`
-- Actions you can bind: `Interact`, `Back`, `Map/Items`, `Pause`, `Reset`, `Lights`, `Horn`, `Radio Pwr`, `Next Ch`, `Prev Ch`, `Scan`
-- Binding labels use the Logitech SDK numbering (`But. N`, `DP ...`). If you're unsure which is which, bind by pressing the physical control.
-
-D-pad behavior
-- In menus: D-pad moves the fake mouse cursor.
-- On foot: D-pad moves the player (8-way/diagonal).
-- While driving: D-pad can be bound to actions.
-- While binding: D-pad cursor control is disabled so you can bind DP directions.
-
-Calibration
+**Calibration**
 - Only needed if throttle/brake axes read incorrectly (e.g., stuck throttle).
 - Use `wheel.exe` -> Calibration.
-- Wizard captures: steering center/left/right + throttle/brake/clutch released/pressed.
+- Follow the instructions to calibrate the pedals. This should fix any issues with wrong or stuck axes. Make sure to hit the "Capture" button at each step to record the axis values.
+
+**Bindings**
+- You can set button bindings in `wheel.exe` -> Bindings.
+- The `Modifier` option allows you to set a "hold to modify" button. When you hold the modifier, you can use the same buttons to trigger different inputs (e.g., `M+A` for `Modifier + A`).
 
 ## Troubleshooting
-- Wheel not detected: install Logitech G HUB (or LGS), plug wheel in before launching the game, then reopen `wheel.exe`.
-- No FFB: verify `LogitechSteeringWheelEnginesWrapper.dll` is next to `EasyLogiWheelSupport.dll`.
-- Pedals stuck / inverted: run `wheel.exe` -> Calibration Wizard.
-- Can't bind D-pad: enter binding capture and press a DP direction (cursor movement is disabled on that screen).
+**My wheel/pedals aren't working or are stuck at full throttle.**
+- Make sure Logitech G HUB (or older Logitech Gaming Software) is installed so the drivers/components are present.
+- Check `wheel.exe` -> `Axis Mapping` to see if axes are detected correctly.
+- If throttle/brake axes are wrong or stuck, got to `wheel.exe` -> `Calibration` and follow the instructions to calibrate.
+
+**The SDK fails to load or I get errors about missing DLLs.**
+- Make sure `LogitechSteeringWheelEnginesWrapper.dll` is in the same folder as `EasyLogiWheelSupport.dll`. The package includes it, but if you're building manually you need to copy it over.
+- Make sure you have the latest Logitech G HUB (or older Logitech Gaming Software) installed, as the wrapper depends on the official Logitech SDK components.
+
+**The in-game menu doesn't show up or I can't open it.**
+- The menu is accessed by clicking `wheel.exe` from the main menu. If it's not there, make sure the icon is enabled in the mod config and that the plugin is loaded correctly (check BepInEx logs for any errors).
 
 ## Build
 - Build: `dotnet build EasyLogiWheelSupport/EasyLogiWheelSupport.csproj -c Release`
-- Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 1.0.1`
+- Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 1.0.2`

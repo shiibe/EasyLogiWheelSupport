@@ -446,7 +446,15 @@ namespace EasyLogiWheelSupport
         {
             if (!Plugin.TryGetCachedWheelState(out var state))
             {
-                _util.Label("Wheel not detected (Logitech SDK not ready).", p.x + p.width / 2f, y);
+                string status = Plugin.GetLogitechStatus();
+                if (status == "No wheel")
+                {
+                    _util.Label("No wheel detected.", p.x + p.width / 2f, y);
+                }
+                else
+                {
+                    _util.Label("Logitech SDK: " + status, p.x + p.width / 2f, y);
+                }
                 return;
             }
 
@@ -748,9 +756,9 @@ namespace EasyLogiWheelSupport
             float cx = p.x + p.width / 2f;
             float backY = p.y + p.height - 18f;
             float clearY = p.y + p.height - 30f;
-            float wizardY = p.y + p.height - 60f;
+            float wizardY = p.y + p.height - 72f;
 
-            if (_util.FancyButton("Calibration Wizard", cx, wizardY))
+            if (_util.FancyButton("Calibrate", cx, wizardY))
             {
                 _calStep = CalStep.SteeringCenter;
                 _page = Page.CalibrationWizard;
@@ -770,7 +778,15 @@ namespace EasyLogiWheelSupport
 
             if (!Plugin.TryGetLogiState(out var state))
             {
-                _util.Label("Wheel not detected (Logitech SDK not ready).", p.x + p.width / 2f, y);
+                string status = Plugin.GetLogitechStatus();
+                if (status == "No wheel")
+                {
+                    _util.Label("No wheel detected.", p.x + p.width / 2f, y);
+                }
+                else
+                {
+                    _util.Label("Logitech SDK: " + status, p.x + p.width / 2f, y);
+                }
                 return;
             }
 
@@ -815,20 +831,6 @@ namespace EasyLogiWheelSupport
 
             float cx = p.x + p.width / 2f;
             float cancelY = p.y + p.height - 18f;
-            float captureY = p.y + p.height - 30f;
-
-            if (_util.SimpleButton("Capture", cx, captureY))
-            {
-                if (Plugin.TryGetLogiState(out var captureState))
-                {
-                    CaptureStep(_calStep, captureState);
-                    _calStep = NextStep(_calStep);
-                    if (_calStep == CalStep.None)
-                    {
-                        _page = Page.Calibration;
-                    }
-                }
-            }
 
             if (_util.SimpleButton("Cancel", cx, cancelY))
             {
@@ -841,7 +843,15 @@ namespace EasyLogiWheelSupport
 
             if (!Plugin.TryGetLogiState(out var state))
             {
-                _util.Label("Wheel not detected (Logitech SDK not ready).", p.x + p.width / 2f, y);
+                string status = Plugin.GetLogitechStatus();
+                if (status == "No wheel")
+                {
+                    _util.Label("No wheel detected.", p.x + p.width / 2f, y);
+                }
+                else
+                {
+                    _util.Label("Logitech SDK: " + status, p.x + p.width / 2f, y);
+                }
                 return;
             }
 
@@ -873,6 +883,21 @@ namespace EasyLogiWheelSupport
             _util.Label($"brk norm={brkNorm:0.00}", p.x + p.width / 2f, y);
             y += line - 2f;
             _util.Label($"clu norm={cluNorm:0.00}", p.x + p.width / 2f, y);
+
+            y += line + sectionGap;
+            float captureY = Mathf.Min(y, cancelY - 34f);
+            if (_util.FancyButton("Capture", cx, captureY))
+            {
+                if (Plugin.TryGetLogiState(out var captureState))
+                {
+                    CaptureStep(_calStep, captureState);
+                    _calStep = NextStep(_calStep);
+                    if (_calStep == CalStep.None)
+                    {
+                        _page = Page.Calibration;
+                    }
+                }
+            }
         }
 
         private static Plugin.AxisId NextAxis(Plugin.AxisId axis)
