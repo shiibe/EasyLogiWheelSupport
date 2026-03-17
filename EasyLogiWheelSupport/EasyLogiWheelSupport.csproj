@@ -9,6 +9,9 @@
         <RootNamespace>EasyLogiWheelSupport</RootNamespace>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 
+        <!-- Optional extra SFX source folder. You can set this to an absolute path or a path relative to this project. -->
+        <SfxSourceDir></SfxSourceDir>
+
         <GameDir>G:\SteamLibrary\steamapps\common\Easy Delivery Co</GameDir>
         <ProfileDir>C:\Users\Shibe\AppData\Roaming\r2modmanPlus-local\EasyDeliveryCo\profiles\G920-Workspace</ProfileDir>
 
@@ -73,6 +76,28 @@
                 DestinationFolder="$(ProfileDir)\BepInEx\plugins\EasyLogiWheelSupport"
                 SkipUnchangedFiles="true"
                 Condition="Exists('$(TargetDir)$(AssemblyName).pdb')" />
+    </Target>
+
+    <Target Name="CopySfx" AfterTargets="Build">
+        <ItemGroup>
+            <IgnitionSfxFiles Include="$(MSBuildProjectDirectory)\sfx\**\*.*" />
+            <IgnitionSfxFiles Include="$(MSBuildProjectDirectory)\..\sfx\**\*.*" />
+            <IgnitionSfxFiles Include="$(SfxSourceDir)\**\*.*" Condition="'$(SfxSourceDir)' != ''" />
+        </ItemGroup>
+
+        <MakeDir Directories="$(TargetDir)sfx" Condition="'@(IgnitionSfxFiles)' != ''" />
+        <Copy
+                SourceFiles="@(IgnitionSfxFiles)"
+                DestinationFolder="$(TargetDir)sfx\%(RecursiveDir)"
+                SkipUnchangedFiles="true"
+                Condition="'@(IgnitionSfxFiles)' != ''" />
+
+        <MakeDir Directories="$(ProfileDir)\BepInEx\plugins\EasyLogiWheelSupport\sfx" Condition="'@(IgnitionSfxFiles)' != ''" />
+        <Copy
+                SourceFiles="@(IgnitionSfxFiles)"
+                DestinationFolder="$(ProfileDir)\BepInEx\plugins\EasyLogiWheelSupport\sfx\%(RecursiveDir)"
+                SkipUnchangedFiles="true"
+                Condition="'@(IgnitionSfxFiles)' != ''" />
     </Target>
 
     <Target Name="CopyLogitechSdkWrapper" AfterTargets="Build">

@@ -69,12 +69,105 @@ namespace EasyLogiWheelSupport
         internal const string PrefKeyHudShowTach = "G920HudShowTach";
         internal const string PrefKeyHudShowGear = "G920HudShowGear";
         internal const string PrefKeyHudSpeedUnits = "G920HudSpeedUnits";
-        internal const string PrefKeyExclusiveWheelInput = "G920ExclusiveWheelInput";
+        internal const string PrefKeyHudReadoutAnchor = "G920HudReadoutAnchor";
+
+        internal const string PrefKeyHudSpeedAnchor = "G920HudSpeedAnchor";
+        internal const string PrefKeyHudTachAnchor = "G920HudTachAnchor";
+        internal const string PrefKeyHudGearAnchor = "G920HudGearAnchor";
+
+        internal const string PrefKeyIgnitionEnabled = "G920IgnitionEnabled";
+        internal const string PrefKeyIgnitionFeatureEnabled = "G920IgnitionFeatureEnabled";
+
+        internal const string PrefKeyIgnitionSfxEnabled = "G920IgnitionSfxEnabled";
+
+        internal const string PrefKeyHeadlightIntensityMult = "G920HeadlightIntensityMult";
+        internal const string PrefKeyHeadlightRangeMult = "G920HeadlightRangeMult";
+
+        internal const string PrefKeyManualSpeedMultForward = "G920ManualSpeedMultFwd";
+        internal const string PrefKeyManualSpeedMultReverse = "G920ManualSpeedMultRev";
+
+        internal const string PrefKeyManualGearCount = "G920ManualGearCount";
+
+        internal static void ClearAllUserPrefs()
+        {
+            // Fixed keys.
+            string[] keys =
+            {
+                PrefKeyFfbEnabled,
+                PrefKeyFfbOverall,
+                PrefKeyFfbSpring,
+                PrefKeyFfbDamper,
+                PrefKeyWheelRange,
+
+                PrefKeySteeringGain,
+                PrefKeySteeringDeadzone,
+                PrefKeySteeringAxis,
+                PrefKeyThrottleAxis,
+                PrefKeyBrakeAxis,
+                PrefKeyClutchAxis,
+
+                PrefKeyCalSteerCenter,
+                PrefKeyCalSteerLeft,
+                PrefKeyCalSteerRight,
+                PrefKeyCalThrottleReleased,
+                PrefKeyCalThrottlePressed,
+                PrefKeyCalBrakeReleased,
+                PrefKeyCalBrakePressed,
+                PrefKeyCalClutchReleased,
+                PrefKeyCalClutchPressed,
+
+                PrefKeyManualTransmissionEnabled,
+                PrefKeyHudShowSpeed,
+                PrefKeyHudShowTach,
+                PrefKeyHudShowGear,
+                PrefKeyHudSpeedUnits,
+                PrefKeyHudReadoutAnchor,
+                PrefKeyHudSpeedAnchor,
+                PrefKeyHudTachAnchor,
+                PrefKeyHudGearAnchor,
+                PrefKeyIgnitionEnabled,
+                PrefKeyIgnitionFeatureEnabled,
+                PrefKeyIgnitionSfxEnabled,
+                PrefKeyHeadlightIntensityMult,
+                PrefKeyHeadlightRangeMult,
+                PrefKeyManualSpeedMultForward,
+                PrefKeyManualSpeedMultReverse,
+                PrefKeyManualGearCount,
+
+                PrefKeyBindModifier
+            };
+
+            foreach (string k in keys)
+            {
+                if (!string.IsNullOrWhiteSpace(k))
+                {
+                    PlayerPrefs.DeleteKey(k);
+                }
+            }
+
+            // Bindings (stable + legacy key format).
+            foreach (BindingLayer layer in (BindingLayer[])Enum.GetValues(typeof(BindingLayer)))
+            {
+                foreach (ButtonBindAction action in (ButtonBindAction[])Enum.GetValues(typeof(ButtonBindAction)))
+                {
+                    PlayerPrefs.DeleteKey(GetBindPrefKey(layer, action));
+                    PlayerPrefs.DeleteKey(GetLegacyBindPrefKey(layer, action));
+                }
+            }
+
+            PlayerPrefs.Save();
+        }
 
         internal enum SpeedUnit
         {
             Kmh = 0,
             Mph = 1
+        }
+
+        internal enum HudReadoutAnchor
+        {
+            BottomLeft = 0,
+            BottomRight = 1
         }
 
         internal enum ButtonBindAction
@@ -96,7 +189,9 @@ namespace EasyLogiWheelSupport
 
             ToggleGearbox = 13,
             ShiftUp = 14,
-            ShiftDown = 15
+            ShiftDown = 15,
+
+            IgnitionToggle = 16
         }
 
         internal enum BindingLayer
@@ -344,6 +439,8 @@ namespace EasyLogiWheelSupport
                     return "Shift Up";
                 case ButtonBindAction.ShiftDown:
                     return "Shift Down";
+                case ButtonBindAction.IgnitionToggle:
+                    return "Ignition";
                 default:
                     return action.ToString();
             }
@@ -588,8 +685,29 @@ namespace EasyLogiWheelSupport
         private static float _neutralRev01;
 
         private static bool _manualTransmissionEnabled;
-        private const int ManualMaxGear = 5;
-        private static int _manualGear = 1; // -1=R, 0=N, 1..ManualMaxGear
+        private static int _manualGear = 1; // -1=R, 0=N, 1..GetManualGearCount()
+
+        internal static int GetManualGearCount()
+        {
+            return Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyManualGearCount, 5), 3, 6);
+        }
+
+        internal static void SetManualGearCount(int count)
+        {
+            count = Mathf.Clamp(count, 3, 6);
+            PlayerPrefs.SetInt(PrefKeyManualGearCount, count);
+            if (_manualGear > count)
+            {
+                _manualGear = count;
+            }
+        }
+
+        internal static int NextManualGearCount(int count)
+        {
+            count++;
+            if (count > 6) count = 3;
+            return count;
+        }
 
         internal static bool GetManualTransmissionEnabled()
         {
@@ -603,7 +721,7 @@ namespace EasyLogiWheelSupport
             if (!enabled)
             {
                 // Keep gear state sane when leaving manual mode.
-                _manualGear = Mathf.Clamp(_manualGear, 1, ManualMaxGear);
+                _manualGear = Mathf.Clamp(_manualGear, 1, GetManualGearCount());
             }
             else
             {
@@ -634,6 +752,142 @@ namespace EasyLogiWheelSupport
         internal static void SetHudShowSpeed(bool enabled)
         {
             PlayerPrefs.SetInt(PrefKeyHudShowSpeed, enabled ? 1 : 0);
+        }
+
+        internal static bool GetIgnitionEnabled()
+        {
+            return PlayerPrefs.GetInt(PrefKeyIgnitionEnabled, 1) != 0;
+        }
+
+        internal static void SetIgnitionEnabled(bool enabled)
+        {
+            PlayerPrefs.SetInt(PrefKeyIgnitionEnabled, enabled ? 1 : 0);
+        }
+
+        internal static bool GetIgnitionFeatureEnabled()
+        {
+            return PlayerPrefs.GetInt(PrefKeyIgnitionFeatureEnabled, 1) != 0;
+        }
+
+        internal static void SetIgnitionFeatureEnabled(bool enabled)
+        {
+            PlayerPrefs.SetInt(PrefKeyIgnitionFeatureEnabled, enabled ? 1 : 0);
+        }
+
+        internal static bool GetIgnitionSfxEnabled()
+        {
+            return PlayerPrefs.GetInt(PrefKeyIgnitionSfxEnabled, 1) != 0;
+        }
+
+        internal static void SetIgnitionSfxEnabled(bool enabled)
+        {
+            PlayerPrefs.SetInt(PrefKeyIgnitionSfxEnabled, enabled ? 1 : 0);
+        }
+
+        internal static void ToggleIgnition()
+        {
+            SetIgnitionEnabled(!GetIgnitionEnabled());
+        }
+
+        internal static bool GetIgnitionEnabledEffective()
+        {
+            if (!GetIgnitionFeatureEnabled())
+            {
+                return true;
+            }
+
+            // If the user has not bound ignition at all, treat ignition as always on.
+            // This makes the feature opt-in via binding.
+            var n = GetBinding(BindingLayer.Normal, ButtonBindAction.IgnitionToggle);
+            var m = GetBinding(BindingLayer.Modified, ButtonBindAction.IgnitionToggle);
+            bool bound = n.Kind != BindingKind.None || m.Kind != BindingKind.None;
+            if (!bound)
+            {
+                return true;
+            }
+            return GetIgnitionEnabled();
+        }
+
+        internal static float GetHeadlightIntensityMult()
+        {
+            return Mathf.Clamp(PlayerPrefs.GetFloat(PrefKeyHeadlightIntensityMult, 1f), 0.1f, 3.0f);
+        }
+
+        internal static void SetHeadlightIntensityMult(float mult)
+        {
+            PlayerPrefs.SetFloat(PrefKeyHeadlightIntensityMult, Mathf.Clamp(mult, 0.1f, 3.0f));
+        }
+
+        internal static float GetHeadlightRangeMult()
+        {
+            return Mathf.Clamp(PlayerPrefs.GetFloat(PrefKeyHeadlightRangeMult, 1f), 0.1f, 3.0f);
+        }
+
+        internal static void SetHeadlightRangeMult(float mult)
+        {
+            PlayerPrefs.SetFloat(PrefKeyHeadlightRangeMult, Mathf.Clamp(mult, 0.1f, 3.0f));
+        }
+
+        internal static HudReadoutAnchor GetHudReadoutAnchor()
+        {
+            return (HudReadoutAnchor)Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyHudReadoutAnchor, 0), 0, 1);
+        }
+
+        internal static HudReadoutAnchor GetHudSpeedAnchor()
+        {
+            if (!PlayerPrefs.HasKey(PrefKeyHudSpeedAnchor))
+            {
+                return GetHudReadoutAnchor();
+            }
+            return (HudReadoutAnchor)Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyHudSpeedAnchor, (int)GetHudReadoutAnchor()), 0, 1);
+        }
+
+        internal static void SetHudSpeedAnchor(HudReadoutAnchor anchor)
+        {
+            PlayerPrefs.SetInt(PrefKeyHudSpeedAnchor, (int)anchor);
+        }
+
+        internal static HudReadoutAnchor GetHudTachAnchor()
+        {
+            if (!PlayerPrefs.HasKey(PrefKeyHudTachAnchor))
+            {
+                return GetHudReadoutAnchor();
+            }
+            return (HudReadoutAnchor)Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyHudTachAnchor, (int)GetHudReadoutAnchor()), 0, 1);
+        }
+
+        internal static void SetHudTachAnchor(HudReadoutAnchor anchor)
+        {
+            PlayerPrefs.SetInt(PrefKeyHudTachAnchor, (int)anchor);
+        }
+
+        internal static HudReadoutAnchor GetHudGearAnchor()
+        {
+            if (!PlayerPrefs.HasKey(PrefKeyHudGearAnchor))
+            {
+                return GetHudReadoutAnchor();
+            }
+            return (HudReadoutAnchor)Mathf.Clamp(PlayerPrefs.GetInt(PrefKeyHudGearAnchor, (int)GetHudReadoutAnchor()), 0, 1);
+        }
+
+        internal static void SetHudGearAnchor(HudReadoutAnchor anchor)
+        {
+            PlayerPrefs.SetInt(PrefKeyHudGearAnchor, (int)anchor);
+        }
+
+        internal static void SetHudReadoutAnchor(HudReadoutAnchor anchor)
+        {
+            PlayerPrefs.SetInt(PrefKeyHudReadoutAnchor, (int)anchor);
+        }
+
+        internal static HudReadoutAnchor NextHudReadoutAnchor(HudReadoutAnchor anchor)
+        {
+            return anchor == HudReadoutAnchor.BottomLeft ? HudReadoutAnchor.BottomRight : HudReadoutAnchor.BottomLeft;
+        }
+
+        internal static string GetHudReadoutAnchorLabel(HudReadoutAnchor anchor)
+        {
+            return anchor == HudReadoutAnchor.BottomRight ? "Bottom R" : "Bottom L";
         }
 
         internal static SpeedUnit GetHudSpeedUnit()
@@ -686,44 +940,65 @@ namespace EasyLogiWheelSupport
             PlayerPrefs.SetInt(PrefKeyHudShowGear, enabled ? 1 : 0);
         }
 
-        internal static bool GetExclusiveWheelInputEnabled()
-        {
-            return PlayerPrefs.GetInt(PrefKeyExclusiveWheelInput, 0) != 0;
-        }
-
-        internal static void SetExclusiveWheelInputEnabled(bool enabled)
-        {
-            PlayerPrefs.SetInt(PrefKeyExclusiveWheelInput, enabled ? 1 : 0);
-        }
 
         internal static void ToggleManualTransmission()
         {
-            SetManualTransmissionEnabled(!GetManualTransmissionEnabled());
+            bool next = !GetManualTransmissionEnabled();
+            SetManualTransmissionEnabled(next);
+            if (next)
+            {
+                // When explicitly toggling into manual mode, always start at 1st.
+                _manualGear = 1;
+            }
+        }
+
+        internal static float GetManualSpeedMultForward()
+        {
+            return Mathf.Clamp(PlayerPrefs.GetFloat(PrefKeyManualSpeedMultForward, 1f), 0.5f, 1.5f);
+        }
+
+        internal static void SetManualSpeedMultForward(float value)
+        {
+            PlayerPrefs.SetFloat(PrefKeyManualSpeedMultForward, Mathf.Clamp(value, 0.5f, 1.5f));
+        }
+
+        internal static float GetManualSpeedMultReverse()
+        {
+            return Mathf.Clamp(PlayerPrefs.GetFloat(PrefKeyManualSpeedMultReverse, 1f), 0.5f, 1.5f);
+        }
+
+        internal static void SetManualSpeedMultReverse(float value)
+        {
+            PlayerPrefs.SetFloat(PrefKeyManualSpeedMultReverse, Mathf.Clamp(value, 0.5f, 1.5f));
         }
 
         internal static void ShiftManualGear(int delta)
         {
-            _manualGear = Mathf.Clamp(_manualGear + delta, -1, ManualMaxGear);
+            _manualGear = Mathf.Clamp(_manualGear + delta, -1, GetManualGearCount());
         }
 
         private static float GetMaxSpeedForGearKmh(int gear)
         {
-            // Simple virtual gearbox: speeds chosen to feel plausible with EDCo truck speeds.
-            switch (gear)
+            // Virtual gearbox curve: lower gears top out earlier.
+            // "Max Gears" changes the spacing between gears, but the top gear still targets vanilla-ish max speed.
+            int count = GetManualGearCount();
+            gear = Mathf.Clamp(gear, 1, count);
+
+            const float baseKmh = 25f;
+            const float topKmh = 125f;
+            float growth = Mathf.Pow(topKmh / baseKmh, 1f / Mathf.Max(1, count - 1));
+            return baseKmh * Mathf.Pow(growth, gear - 1);
+        }
+
+        private static float GetMaxSpeedForCurrentGearKmh()
+        {
+            int g = _manualGear;
+            if (g == 0)
             {
-                case 1:
-                    return 40f;
-                case 2:
-                    return 80f;
-                case 3:
-                    return 130f;
-                case 4:
-                    return 180f;
-                case 5:
-                    return 230f;
-                default:
-                    return 30f;
+                return 1f;
             }
+            float baseKmh = GetMaxSpeedForGearKmh(Mathf.Clamp(Mathf.Abs(g), 1, GetManualGearCount()));
+            return Mathf.Max(1f, baseKmh);
         }
 
         internal static float GetEstimatedRpm()
@@ -746,7 +1021,7 @@ namespace EasyLogiWheelSupport
             }
 
             float max = GetMaxSpeedForGearKmh(Mathf.Abs(_manualGear));
-            t = Mathf.Clamp01(_currentSpeedKmh / Mathf.Max(1f, max));
+            t = Mathf.Clamp01(_currentSpeedKmh / GetMaxSpeedForCurrentGearKmh());
             return Mathf.Lerp(idle, redline, t);
         }
 
@@ -765,7 +1040,7 @@ namespace EasyLogiWheelSupport
             }
 
             float max = GetMaxSpeedForGearKmh(Mathf.Abs(_manualGear));
-            float t = _currentSpeedKmh / Mathf.Max(1f, max);
+            float t = _currentSpeedKmh / GetMaxSpeedForCurrentGearKmh();
             return Mathf.Clamp(t, 0f, 1.2f);
         }
 
@@ -781,18 +1056,17 @@ namespace EasyLogiWheelSupport
                 return 0f;
             }
 
-            if (_manualGear < 0)
-            {
-                return -Mathf.Clamp01(gas);
-            }
-
             float speed = Mathf.Max(0f, _currentSpeedKmh);
-            float max = GetMaxSpeedForGearKmh(_manualGear);
+            float max = GetMaxSpeedForCurrentGearKmh();
 
-            // Torque falls off near top of each gear.
-            float band = Mathf.Clamp01(1f - (speed / Mathf.Max(1f, max)));
-            float torque = Mathf.Lerp(0.35f, 1.15f, band);
-            return Mathf.Clamp01(gas) * torque;
+            // Torque falls off near top of each gear, but should still pull in top gear.
+            float t = Mathf.Clamp01(speed / Mathf.Max(1f, max));
+            float band = 1f - t;
+            float shaped = Mathf.Pow(band, 0.55f);
+            float torque = Mathf.Lerp(0.55f, 1.20f, shaped);
+
+            float a = Mathf.Clamp01(gas) * torque;
+            return _manualGear < 0 ? -a : a;
         }
 
 
@@ -804,6 +1078,7 @@ namespace EasyLogiWheelSupport
         private static float _wheelMenuHeartbeatTime;
         private static float _ffbPageHeartbeatTime;
         private static float _bindingCaptureHeartbeatTime;
+        private static float _calibrationWizardHeartbeatTime;
 
         private static bool ShouldApply()
         {
@@ -1315,6 +1590,14 @@ namespace EasyLogiWheelSupport
             }
         }
 
+        internal static void SetCalibrationWizardActive(bool active)
+        {
+            if (active)
+            {
+                _calibrationWizardHeartbeatTime = Time.unscaledTime;
+            }
+        }
+
         internal static void SetFfbPageActive(bool active)
         {
             if (active)
@@ -1342,6 +1625,11 @@ namespace EasyLogiWheelSupport
         internal static bool IsBindingCaptureActive()
         {
             return Time.unscaledTime - _bindingCaptureHeartbeatTime < 0.5f;
+        }
+
+        internal static bool IsCalibrationWizardActive()
+        {
+            return Time.unscaledTime - _calibrationWizardHeartbeatTime < 0.5f;
         }
 
         internal static bool TryGetLogiState(out LogitechGSDK.DIJOYSTATE2ENGINES state)

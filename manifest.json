@@ -2,7 +2,7 @@
     "name":  "EasyLogiWheelSupport",
     "version_number":  "1.0.2",
     "website_url":  "https://github.com/shiibe/EasyLogiWheelSupport",
-    "description":  "Logitech wheel support for Easy Delivery Co.",
+    "description":  "Logitech wheel support for Easy Delivery Co. (FFB + optional manual transmission)",
     "dependencies":  [
                          "BepInEx-BepInExPack-5.4.2304"
                      ]

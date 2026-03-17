@@ -44,6 +44,7 @@ $outputDir = Join-Path (Join-Path $repoRoot $pluginName) ("bin\" + $Configuratio
 $dllPath = Join-Path $outputDir ($pluginName + ".dll")
 $pdbPath = Join-Path $outputDir ($pluginName + ".pdb")
 $logiWrapperPath = Join-Path $outputDir "LogitechSteeringWheelEnginesWrapper.dll"
+$sfxOutDir = Join-Path $outputDir "sfx"
 
 if (-not (Test-Path $dllPath))
 {
@@ -63,6 +64,14 @@ if (Test-Path $pdbPath)
 if (Test-Path $logiWrapperPath)
 {
     Copy-Item $logiWrapperPath -Destination $distPlugins -Force
+}
+
+# Optional SFX (e.g. ignition_on.wav) bundled into plugins/EasyLogiWheelSupport/sfx
+if (Test-Path $sfxOutDir)
+{
+    $distSfx = Join-Path $distPlugins "sfx"
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $distSfx
+    Copy-Item $sfxOutDir -Destination $distSfx -Recurse -Force
 }
 
 Write-Host "Syncing Thunderstore metadata..."

@@ -34,6 +34,9 @@ namespace EasyLogiWheelSupport
         private Plugin.BindingLayer _bindingDupPendingLayer;
         private List<BindingConflict> _bindingDupConflicts;
 
+        private bool _miscClearConfirmActive;
+        private float _miscClearedUntil;
+
         private struct BindingConflict
         {
             public Plugin.BindingLayer Layer;
@@ -54,6 +57,7 @@ namespace EasyLogiWheelSupport
             Plugin.ButtonBindAction.RadioScanRight,
             Plugin.ButtonBindAction.RadioScanLeft,
             Plugin.ButtonBindAction.RadioScanToggle,
+            Plugin.ButtonBindAction.IgnitionToggle,
             Plugin.ButtonBindAction.ToggleGearbox,
             Plugin.ButtonBindAction.ShiftUp,
             Plugin.ButtonBindAction.ShiftDown
@@ -78,12 +82,21 @@ namespace EasyLogiWheelSupport
             Main = 0,
             Ffb = 1,
             Steering = 2,
-            Transmission = 3,
+            VehicleHud = 3,
             Calibration = 4,
             CalibrationWizard = 5,
             Bindings = 6,
-            BindingCapture = 7
+            BindingCapture = 7,
+            Misc = 8
         }
+
+        private enum VehicleHudPage
+        {
+            Vehicle = 0,
+            Hud = 1
+        }
+
+        private VehicleHudPage _vehicleHudPage;
 
         public void FrameUpdate(DesktopDotExe.WindowView view)
         {
@@ -150,6 +163,7 @@ namespace EasyLogiWheelSupport
             Plugin.SetWheelMenuActive(true);
             Plugin.SetFfbPageActive(_page == Page.Ffb);
             Plugin.SetBindingCaptureActive(_page == Page.BindingCapture);
+            Plugin.SetCalibrationWizardActive(_page == Page.CalibrationWizard);
 
             if (_page == Page.Main)
             {
@@ -169,9 +183,9 @@ namespace EasyLogiWheelSupport
             {
                 DrawSteering(p, center, ref y, line, sectionGap);
             }
-            else if (_page == Page.Transmission)
+            else if (_page == Page.VehicleHud)
             {
-                DrawTransmission(p, center, ref y, line, sectionGap);
+                DrawVehicleHud(p, center, ref y, line, sectionGap);
             }
             else if (_page == Page.Calibration)
             {
@@ -184,6 +198,10 @@ namespace EasyLogiWheelSupport
             else if (_page == Page.BindingCapture)
             {
                 DrawBindingCapture(p, center, ref y, line, sectionGap);
+            }
+            else if (_page == Page.Misc)
+            {
+                DrawMisc(p, center, ref y, line, sectionGap);
             }
             else
             {
@@ -207,9 +225,9 @@ namespace EasyLogiWheelSupport
                 _page = Page.Steering;
             }
             y += btnGap;
-            if (_util.FancyButton("Transmission", cx, y))
+            if (_util.FancyButton("Vehicle/HUD", cx, y))
             {
-                _page = Page.Transmission;
+                _page = Page.VehicleHud;
             }
             y += btnGap;
             if (_util.FancyButton("Calibration", cx, y))
@@ -221,6 +239,12 @@ namespace EasyLogiWheelSupport
             {
                 _page = Page.Bindings;
                 Plugin.LogDebug("Bindings: opened bindings menu");
+            }
+            y += btnGap;
+            if (_util.FancyButton("Misc", cx, y))
+            {
+                _miscClearConfirmActive = false;
+                _page = Page.Misc;
             }
 
             // SDK status at bottom.
@@ -405,6 +429,7 @@ namespace EasyLogiWheelSupport
                 {
                     Plugin.ButtonBindAction.Headlights,
                     Plugin.ButtonBindAction.Horn,
+                    Plugin.ButtonBindAction.IgnitionToggle,
                     Plugin.ButtonBindAction.ToggleGearbox,
                     Plugin.ButtonBindAction.ShiftUp,
                     Plugin.ButtonBindAction.ShiftDown
@@ -421,75 +446,256 @@ namespace EasyLogiWheelSupport
             });
         }
 
-        private void DrawTransmission(Rect p, float center, ref float y, float line, float sectionGap)
+        private static VehicleHudPage PrevVehicleHudPage(VehicleHudPage p)
         {
-            _util.Label("Transmission", p.x + p.width / 2f, y);
+            return p == VehicleHudPage.Vehicle ? VehicleHudPage.Hud : VehicleHudPage.Vehicle;
+        }
+
+        private static VehicleHudPage NextVehicleHudPage(VehicleHudPage p)
+        {
+            return p == VehicleHudPage.Vehicle ? VehicleHudPage.Hud : VehicleHudPage.Vehicle;
+        }
+
+        private static string GetVehicleHudPageTitle(VehicleHudPage p)
+        {
+            switch (p)
+            {
+                case VehicleHudPage.Vehicle:
+                    return "Vehicle";
+                case VehicleHudPage.Hud:
+                    return "HUD";
+                default:
+                    return "Vehicle";
+            }
+        }
+
+        private void DrawVehicleHud(Rect p, float center, ref float y, float line, float sectionGap)
+        {
+            _util.Label("Vehicle/HUD", p.x + p.width / 2f, y);
+            y += line;
+
+            float cx = p.x + p.width / 2f;
+
+            float navY = p.y + p.height - 18f;
+            float prevX = p.x + 40f;
+            float nextX = p.x + p.width - 40f;
+
+            if (_util.SimpleButtonRaw("Prev", prevX, navY))
+            {
+                _vehicleHudPage = PrevVehicleHudPage(_vehicleHudPage);
+            }
+            if (_util.SimpleButton("Back", cx, navY))
+            {
+                _page = Page.Main;
+                return;
+            }
+            if (_util.SimpleButtonRaw("Next", nextX, navY))
+            {
+                _vehicleHudPage = NextVehicleHudPage(_vehicleHudPage);
+            }
+
+            // Page indicator.
+            int pageNum = (int)_vehicleHudPage + 1;
+            int pageTotal = (int)VehicleHudPage.Hud + 1;
+            _util.Label(pageNum + "/" + pageTotal, p.x + p.width - 18f, p.y + 10f);
+
+            y += sectionGap;
+
+            _util.Label(GetVehicleHudPageTitle(_vehicleHudPage), p.x + p.width / 2f, y);
+            y += line + sectionGap;
+
+            bool manual = Plugin.GetManualTransmissionEnabled();
+            if (_vehicleHudPage == VehicleHudPage.Vehicle)
+            {
+                // Order requested:
+                // Transmission, Max Gears, Ignition, Speed Mult., Revrs Mult., Headlgt Bright, Headlght Dist
+
+                string modeLabel = manual ? "Manual" : "Auto";
+                if (_util.CycleButtonRaw("Transmission", modeLabel, center, y))
+                {
+                    Plugin.ToggleManualTransmission();
+                }
+                y += line;
+
+                if (manual)
+                {
+                    int gears = Plugin.GetManualGearCount();
+                    if (_util.CycleButtonRaw("Max Gears", gears.ToString(), center, y))
+                    {
+                        Plugin.SetManualGearCount(Plugin.NextManualGearCount(gears));
+                    }
+                    y += line;
+                }
+
+                bool ignFeature = Plugin.GetIgnitionFeatureEnabled();
+                string ignLabel = ignFeature ? "Enabled" : "Disabled";
+                if (_util.CycleButtonRaw("Ignition", ignLabel, center, y))
+                {
+                    Plugin.SetIgnitionFeatureEnabled(!ignFeature);
+                }
+                y += line;
+
+                bool ignSfx = Plugin.GetIgnitionSfxEnabled();
+                string ignSfxLabel = ignSfx ? "On" : "Off";
+                if (_util.CycleButtonRaw("Ignition SFX", ignSfxLabel, center, y))
+                {
+                    Plugin.SetIgnitionSfxEnabled(!ignSfx);
+                }
+                y += line;
+
+                float fwd = Plugin.GetManualSpeedMultForward();
+                _util.ValueLabel($"{Mathf.RoundToInt(fwd * 100f)}%", p.x + p.width - 12f, y);
+                float fwdNorm = Mathf.InverseLerp(0.5f, 1.5f, fwd);
+                float? newFwdNorm = _util.Slider("Speed Mult.", fwdNorm, center, y, ref _mouseYLock);
+                if (newFwdNorm.HasValue)
+                {
+                    Plugin.SetManualSpeedMultForward(Mathf.Lerp(0.5f, 1.5f, newFwdNorm.Value));
+                }
+                y += line;
+
+                float rev = Plugin.GetManualSpeedMultReverse();
+                _util.ValueLabel($"{Mathf.RoundToInt(rev * 100f)}%", p.x + p.width - 12f, y);
+                float revNorm = Mathf.InverseLerp(0.5f, 1.5f, rev);
+                float? newRevNorm = _util.Slider("Revrs Mult.", revNorm, center, y, ref _mouseYLock);
+                if (newRevNorm.HasValue)
+                {
+                    Plugin.SetManualSpeedMultReverse(Mathf.Lerp(0.5f, 1.5f, newRevNorm.Value));
+                }
+                y += line;
+
+                float inten = Plugin.GetHeadlightIntensityMult();
+                _util.ValueLabel($"{inten:0.00}x", p.x + p.width - 12f, y);
+                float intenNorm = Mathf.InverseLerp(0.25f, 2.0f, inten);
+                float? newIntenNorm = _util.Slider("Headlgt Bright", intenNorm, center, y, ref _mouseYLock);
+                if (newIntenNorm.HasValue)
+                {
+                    Plugin.SetHeadlightIntensityMult(Mathf.Lerp(0.25f, 2.0f, newIntenNorm.Value));
+                }
+                y += line;
+
+                float dist = Plugin.GetHeadlightRangeMult();
+                _util.ValueLabel($"{dist:0.00}x", p.x + p.width - 12f, y);
+                float distNorm = Mathf.InverseLerp(0.25f, 2.0f, dist);
+                float? newDistNorm = _util.Slider("Headlght Dist", distNorm, center, y, ref _mouseYLock);
+                if (newDistNorm.HasValue)
+                {
+                    Plugin.SetHeadlightRangeMult(Mathf.Lerp(0.25f, 2.0f, newDistNorm.Value));
+                }
+                return;
+            }
+
+            if (_vehicleHudPage == VehicleHudPage.Hud)
+            {
+                var units = Plugin.GetHudSpeedUnit();
+                if (_util.CycleButtonRaw("Units", Plugin.GetHudSpeedUnitLabel(units), center, y))
+                {
+                    Plugin.SetHudSpeedUnit(Plugin.NextHudSpeedUnit(units));
+                }
+                y += line;
+
+                bool hudSpeed = Plugin.GetHudShowSpeed();
+                bool? newHudSpeed = _util.Toggle("Speedomtr", hudSpeed, center, y);
+                if (newHudSpeed.HasValue)
+                {
+                    Plugin.SetHudShowSpeed(newHudSpeed.Value);
+                }
+                y += line;
+
+                if (manual)
+                {
+                    bool hudTach = Plugin.GetHudShowTach();
+                    bool? newHudTach = _util.Toggle("Tachomtr", hudTach, center, y);
+                    if (newHudTach.HasValue)
+                    {
+                        Plugin.SetHudShowTach(newHudTach.Value);
+                    }
+                    y += line;
+
+                    bool hudGear = Plugin.GetHudShowGear();
+                    bool? newHudGear = _util.Toggle("Gear Ind", hudGear, center, y);
+                    if (newHudGear.HasValue)
+                    {
+                        Plugin.SetHudShowGear(newHudGear.Value);
+                    }
+                    y += line;
+                }
+
+                var spPos = Plugin.GetHudSpeedAnchor();
+                if (_util.CycleButtonRaw("Speedomtr Pos", Plugin.GetHudReadoutAnchorLabel(spPos), center, y))
+                {
+                    Plugin.SetHudSpeedAnchor(Plugin.NextHudReadoutAnchor(spPos));
+                }
+                y += line;
+
+                if (manual)
+                {
+                    var tPos = Plugin.GetHudTachAnchor();
+                    if (_util.CycleButtonRaw("Tachomtr Pos", Plugin.GetHudReadoutAnchorLabel(tPos), center, y))
+                    {
+                        Plugin.SetHudTachAnchor(Plugin.NextHudReadoutAnchor(tPos));
+                    }
+                    y += line;
+
+                    var gPos = Plugin.GetHudGearAnchor();
+                    if (_util.CycleButtonRaw("Gear Ind. Pos", Plugin.GetHudReadoutAnchorLabel(gPos), center, y))
+                    {
+                        Plugin.SetHudGearAnchor(Plugin.NextHudReadoutAnchor(gPos));
+                    }
+                }
+                return;
+            }
+        }
+
+        private void DrawMisc(Rect p, float center, ref float y, float line, float sectionGap)
+        {
+            _util.Label("Misc", p.x + p.width / 2f, y);
             y += line;
 
             float cx = p.x + p.width / 2f;
             float backY = p.y + p.height - 18f;
             if (_util.SimpleButton("Back", cx, backY))
             {
+                _miscClearConfirmActive = false;
                 _page = Page.Main;
                 return;
             }
 
             y += sectionGap;
 
-            bool manual = Plugin.GetManualTransmissionEnabled();
-            bool? newManual = _util.Toggle("Manual Trans", manual, center, y);
-            if (newManual.HasValue)
+            if (_miscClearedUntil > Time.unscaledTime)
             {
-                Plugin.SetManualTransmissionEnabled(newManual.Value);
+                _util.Label("Saved settings cleared.", p.x + p.width / 2f, y);
+                y += line + sectionGap;
             }
-            y += line;
 
-            bool hudSpeed = Plugin.GetHudShowSpeed();
-            bool? newHudSpeed = _util.Toggle("HUD Speed", hudSpeed, center, y);
-            if (newHudSpeed.HasValue)
+            if (!_miscClearConfirmActive)
             {
-                Plugin.SetHudShowSpeed(newHudSpeed.Value);
+                if (_util.FancyButton("Clear Saved Settings", cx, y))
+                {
+                    _miscClearConfirmActive = true;
+                }
+                // FancyButton draws a 24px-tall hitbox; give the label below enough space.
+                y += 22f;
+                _util.Label("Clears Wheel mod prefs.", p.x + p.width / 2f, y);
+                y += line - 2f;
+                _util.Label("(FFB, binds, calib)", p.x + p.width / 2f, y);
+                return;
             }
-            y += line;
 
-            var units = Plugin.GetHudSpeedUnit();
-            if (_util.CycleButtonRaw("Units", Plugin.GetHudSpeedUnitLabel(units), center, y))
-            {
-                Plugin.SetHudSpeedUnit(Plugin.NextHudSpeedUnit(units));
-            }
-            y += line;
-
-            bool hudTach = Plugin.GetHudShowTach();
-            bool? newHudTach = _util.Toggle("HUD Tach", hudTach, center, y, manual);
-            if (newHudTach.HasValue)
-            {
-                Plugin.SetHudShowTach(newHudTach.Value);
-            }
-            y += line;
-
-            bool hudGear = Plugin.GetHudShowGear();
-            bool? newHudGear = _util.Toggle("HUD Gear", hudGear, center, y, manual);
-            if (newHudGear.HasValue)
-            {
-                Plugin.SetHudShowGear(newHudGear.Value);
-            }
+            _util.Label("Clear ALL saved settings?", p.x + p.width / 2f, y);
             y += line + sectionGap;
 
-            bool exclusive = Plugin.GetExclusiveWheelInputEnabled();
-            bool? newExclusive = _util.Toggle("Exclusive Input", exclusive, center, y);
-            if (newExclusive.HasValue)
+            float yesY = p.y + p.height - 52f;
+            float cancelY = p.y + p.height - 34f;
+            if (_util.SimpleButton("Yes", cx, yesY))
             {
-                Plugin.SetExclusiveWheelInputEnabled(newExclusive.Value);
+                Plugin.ClearAllUserPrefs();
+                _miscClearConfirmActive = false;
+                _miscClearedUntil = Time.unscaledTime + 2.5f;
             }
-            y += line + sectionGap;
-
-            if (Plugin.GetManualTransmissionEnabled())
+            if (_util.SimpleButton("Cancel", cx, cancelY))
             {
-                _util.Label("Gear: " + Plugin.GetManualGearLabel(), p.x + p.width / 2f, y);
-            }
-            else
-            {
-                _util.Label("Gear: Auto", p.x + p.width / 2f, y);
+                _miscClearConfirmActive = false;
             }
         }
 
@@ -556,18 +762,30 @@ namespace EasyLogiWheelSupport
                 Plugin.SetSteeringAxis(NextAxis(steerAxis));
                 _calStep = CalStep.None;
             }
+
+            int rawSteer0 = Plugin.GetAxisValue(state, steerAxis);
+            float steerNorm0 = Plugin.NormalizeSteering(rawSteer0);
+            _util.ValueLabel($"{steerNorm0:+0.00;-0.00;0.00}", p.x + p.width - 12f, y);
             y += line;
             if (_util.CycleButtonRaw("Throttle", throttleAxis.ToString(), center, y))
             {
                 Plugin.SetThrottleAxis(NextAxis(throttleAxis));
                 _calStep = CalStep.None;
             }
+
+            int rawThr0 = Plugin.GetAxisValue(state, throttleAxis);
+            float thrNorm0 = Plugin.NormalizePedal(rawThr0, Plugin.PedalKind.Throttle);
+            _util.ValueLabel($"{thrNorm0:0.00}", p.x + p.width - 12f, y);
             y += line;
             if (_util.CycleButtonRaw("Brake", brakeAxis.ToString(), center, y))
             {
                 Plugin.SetBrakeAxis(NextAxis(brakeAxis));
                 _calStep = CalStep.None;
             }
+
+            int rawBrk0 = Plugin.GetAxisValue(state, brakeAxis);
+            float brkNorm0 = Plugin.NormalizePedal(rawBrk0, Plugin.PedalKind.Brake);
+            _util.ValueLabel($"{brkNorm0:0.00}", p.x + p.width - 12f, y);
 
             y += line;
             if (_util.CycleButtonRaw("Clutch", clutchAxis.ToString(), center, y))
@@ -576,14 +794,30 @@ namespace EasyLogiWheelSupport
                 _calStep = CalStep.None;
             }
 
+            int rawClu0 = Plugin.GetAxisValue(state, clutchAxis);
+            float cluNorm0 = Plugin.NormalizePedal(rawClu0, Plugin.PedalKind.Clutch);
+            _util.ValueLabel($"{cluNorm0:0.00}", p.x + p.width - 12f, y);
+
             y += line + sectionGap;
-            int rawSteer = Plugin.GetAxisValue(state, Plugin.GetSteeringAxis());
-            int rawThr = Plugin.GetAxisValue(state, Plugin.GetThrottleAxis());
-            int rawBrk = Plugin.GetAxisValue(state, Plugin.GetBrakeAxis());
-            int rawClu = Plugin.GetAxisValue(state, Plugin.GetClutchAxis());
-            _util.Label($"steer={rawSteer}  thr={rawThr}", p.x + p.width / 2f, y);
+
+            _util.Label("Live Axes", p.x + p.width / 2f, y);
+            y += line;
+
+            string axes1 = $"lX={state.lX} lY={state.lY} lZ={state.lZ}";
+            string axes2 = $"lRx={state.lRx} lRy={state.lRy} lRz={state.lRz}";
+            int s0 = state.rglSlider != null && state.rglSlider.Length > 0 ? state.rglSlider[0] : 0;
+            int s1 = state.rglSlider != null && state.rglSlider.Length > 1 ? state.rglSlider[1] : 0;
+            string axes3 = $"slider0={s0} slider1={s1}";
+            _util.Label(axes1, p.x + p.width / 2f, y);
             y += line - 2f;
-            _util.Label($"brk={rawBrk}  clu={rawClu}", p.x + p.width / 2f, y);
+            _util.Label(axes2, p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label(axes3, p.x + p.width / 2f, y);
+            y += line;
+
+            _util.Label($"steer={steerNorm0:+0.00;-0.00;0.00} thr={thrNorm0:0.00}", p.x + p.width / 2f, y);
+            y += line - 2f;
+            _util.Label($"brk={brkNorm0:0.00} clu={cluNorm0:0.00}", p.x + p.width / 2f, y);
         }
 
         private void DrawBindingsButtonsPage(Rect p, float center, ref float y, float line, Plugin.ButtonBindAction[] actions)
@@ -673,11 +907,20 @@ namespace EasyLogiWheelSupport
         {
             conflicts = null;
 
+            // If a Modifier is configured, allow reusing the same physical binding in Normal vs Modified layers.
+            // This is the whole point of M+ chords (e.g. DPadUp and M+DPadUp).
+            bool allowCrossLayerReuse = Plugin.GetModifierBinding().Kind != Plugin.BindingKind.None;
+
             foreach (var action in AllBindableActions)
             {
                 foreach (Plugin.BindingLayer layer in new[] { Plugin.BindingLayer.Normal, Plugin.BindingLayer.Modified })
                 {
                     if (action == targetAction && layer == targetLayer)
+                    {
+                        continue;
+                    }
+
+                    if (allowCrossLayerReuse && layer != targetLayer)
                     {
                         continue;
                     }

@@ -37,6 +37,9 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 ## Features
 - Wheel steering + pedals
 - Force Feedback (FFB)
+- Optional manual transmission mode
+- Optional ignition toggle (bindable)
+- Optional HUD readouts: speed + tach + gear
 - In-game `wheel.exe` settings menu
 - Button bindings menu with optional `Modifier` (hold to bind `M+...` for extra inputs)
 - D-pad support: menus (cursor) + on-foot movement (8-way)
@@ -108,6 +111,36 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 
 ## In-game menu
 - Click `wheel.exe` in the main menu to adjust wheel/FFB/settings.
+
+**Vehicle/HUD**
+- Paged menu with `Vehicle` and `HUD` pages.
+
+**Vehicle**
+- `Ignition`: enable/disable ignition behavior (disabled = always on; ignition bind does nothing)
+- `Ignition SFX`: enable/disable ignition sounds
+- `Transmission`: Auto/Manual
+- Manual-only: `Max Gears`
+- `Speed Mult.` / `Revrs Mult.`: scales vehicle max speed (Auto + Manual)
+- `Headlgt Bright`: headlight brightness multiplier
+- `Headlght Dist`: headlight distance/range multiplier
+
+**HUD**
+- `Units`: switch between `km/h` and `mph`.
+- `Speedomtr`, Manual-only: `Tachomtr`, `Gear Ind`
+- `Speedomtr Pos`, Manual-only: `Tachomtr Pos`, `Gear Ind. Pos`
+
+**Ignition**
+- Bind `Ignition` in `wheel.exe` -> `Bindings` to enable ignition on/off behavior.
+- If `Ignition` is unbound, ignition is treated as always on.
+- Hold the `Ignition` bind for ~1.5 seconds to toggle (safety).
+- While holding to turn ignition ON, `ignition_on.wav` plays/loops until the toggle completes or you release.
+- HUD: shows a `START xx%` indicator while the engine is starting.
+- Ignition OFF: disables throttle, turns off headlights + radio, mutes engine, and stops fuel consumption.
+- Optional SFX:
+  - `ignition_on.wav`: place next to `EasyLogiWheelSupport.dll` (or in `sfx/` next to it), or set `Ignition/sfx_on_path` in the config.
+  - `ignition_off.wav`: place next to `EasyLogiWheelSupport.dll` (or in `sfx/` next to it). If missing, the mod uses the stock headlights OFF click as the engine-off sound.
+- `Vehicle -> Ignition` can disable ignition behavior entirely (truck always on).
+- `Vehicle -> Ignition SFX` toggles ignition sounds.
 
 **Calibration**
 - Only needed if throttle/brake axes read incorrectly (e.g., stuck throttle).
