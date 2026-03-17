@@ -51,6 +51,10 @@ if (-not (Test-Path $dllPath))
 }
 
 New-Item -ItemType Directory -Force -Path $distPlugins | Out-Null
+
+# Clean up any stale files from previous packages.
+Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $distPlugins "THIRDPARTY_NOTICES.md")
+
 Copy-Item $dllPath -Destination $distPlugins -Force
 if (Test-Path $pdbPath)
 {
@@ -68,7 +72,6 @@ Copy-Item $readmePath -Destination (Join-Path $distRoot "README.md") -Force
 if (Test-Path $thirdPartyNoticesPath)
 {
     Copy-Item $thirdPartyNoticesPath -Destination (Join-Path $distRoot "THIRDPARTY_NOTICES.md") -Force
-    Copy-Item $thirdPartyNoticesPath -Destination (Join-Path $distPlugins "THIRDPARTY_NOTICES.md") -Force
 }
 if (Test-Path $iconPath)
 {
