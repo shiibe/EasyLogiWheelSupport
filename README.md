@@ -67,7 +67,7 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
   </tr>
   <tr>
     <td width="50%"><img src="assets/screenshots/9.jpg" alt="Screenshot 9" width="100%"></td>
-    <td width="50%"></td>
+    <td width="50%"><img src="assets/screenshots/10.jpg" alt="Screenshot 10" width="100%"></td>
   </tr>
 </table>
 
