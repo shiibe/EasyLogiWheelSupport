@@ -16,7 +16,6 @@ namespace EasyLogiWheelSupport
         private static ConfigEntry<float> _ignitionSfxVolume;
 
         private static UnityEngine.Object _ignitionSfxOn;
-        private static UnityEngine.Object _ignitionSfxOff;
 
         private void Awake()
         {
@@ -33,14 +32,16 @@ namespace EasyLogiWheelSupport
 
             _ignoreXInputControllers = Config.Bind("General", "ignore_xinput_controllers", true, "Pass 'ignoreXInputControllers' to the Logitech SDK init (recommended).");
 
-            _ignitionSfxOnPath = Config.Bind("Ignition", "sfx_on_path", "", "Optional ignition ON sound (.wav PCM; 16/24-bit supported). Leave blank to auto-load ignition_on.wav from the plugin folder.");
+            _ignitionSfxOnPath = Config.Bind("Ignition", "sfx_on_path", "", "Optional ignition ON sound (.wav PCM; 16/24-bit supported). File name inside the plugin's sfx folder (e.g. ignition_on.wav). Leave blank to use sfx/ignition_on.wav.");
             _ignitionSfxVolume = Config.Bind("Ignition", "sfx_volume", 0.6f, "Ignition sound volume (0..1).");
 
             if (!_enableMod.Value)
             {
-                _log.LogInfo("G920 mod disabled via config.");
+                _log.LogInfo("EasyLogiWheelSupport disabled via config.");
                 return;
             }
+
+            MigratePrefsFromG920IfNeeded();
 
             var harmony = new Harmony(PluginGuid);
 
@@ -73,27 +74,28 @@ namespace EasyLogiWheelSupport
 
             string Resolve(string cfg, string baseName)
             {
-                if (!string.IsNullOrWhiteSpace(cfg))
+                string sfxDir = Path.Combine(dir, "sfx");
+                if (string.IsNullOrWhiteSpace(cfg))
+                {
+                    string wav = Path.Combine(sfxDir, baseName + ".wav");
+                    return File.Exists(wav) ? wav : string.Empty;
+                }
+
+                // Config path is always relative to the plugin's sfx folder unless absolute.
+                if (Path.IsPathRooted(cfg))
                 {
                     return cfg;
                 }
-
-                string wav = Path.Combine(dir, baseName + ".wav");
-                if (File.Exists(wav)) return wav;
-
-                string wav2 = Path.Combine(dir, "sfx", baseName + ".wav");
-                if (File.Exists(wav2)) return wav2;
-                return string.Empty;
+                string resolved = Path.Combine(sfxDir, cfg);
+                return File.Exists(resolved) ? resolved : string.Empty;
             }
 
             string onPath = Resolve(_ignitionSfxOnPath != null ? _ignitionSfxOnPath.Value : string.Empty, "ignition_on");
-            string offPath = Resolve(string.Empty, "ignition_off");
 
             _ignitionSfxOn = LoadWavOrNull(onPath);
-            _ignitionSfxOff = LoadWavOrNull(offPath);
 
             // Always log once so it's obvious if the file was found.
-            _log?.LogInfo("Ignition SFX: on=" + (_ignitionSfxOn != null) + " off=" + (_ignitionSfxOff != null));
+            _log?.LogInfo("Ignition SFX: on=" + (_ignitionSfxOn != null));
         }
 
         private static UnityEngine.Object LoadWavOrNull(string path)
@@ -1605,8 +1607,6 @@ namespace EasyLogiWheelSupport
                 _ignitionPrevHeadlightsOn = hl != null && hl.headlightsOn;
                 _ignitionPrevRadioOn = radioIsForCar && radio.source != null && radio.source.enabled;
 
-                PlayIgnitionSfx(false, car);
-
                 // Force off.
                 ForceVehicleLightsOff(car);
                 if (radioIsForCar && radio.source != null && radio.source.enabled)
@@ -1627,7 +1627,7 @@ namespace EasyLogiWheelSupport
             }
             else
             {
-                PlayIgnitionSfx(true, car);
+                PlayIgnitionSfx(car);
             }
 
             // Restore previous accessory state on ignition on.
@@ -1649,7 +1649,7 @@ namespace EasyLogiWheelSupport
             }
         }
 
-        private static void PlayIgnitionSfx(bool ignitionOn, sCarController car)
+        private static void PlayIgnitionSfx(sCarController car)
         {
             if (car == null)
             {
@@ -1667,12 +1667,12 @@ namespace EasyLogiWheelSupport
                 return;
             }
 
-            UnityEngine.Object clip = ignitionOn ? _ignitionSfxOn : _ignitionSfxOff;
+            UnityEngine.Object clip = _ignitionSfxOn;
             if (clip == null)
             {
                 if (_debugLogging != null && _debugLogging.Value)
                 {
-                    _log?.LogInfo("Ignition SFX missing for " + (ignitionOn ? "ON" : "OFF"));
+                    _log?.LogInfo("Ignition SFX missing (ignition_on.wav not loaded)");
                 }
                 return;
             }
@@ -1689,7 +1689,7 @@ namespace EasyLogiWheelSupport
                     m.Invoke(car.headlights, new object[] { clip, vol });
                     if (_debugLogging != null && _debugLogging.Value)
                     {
-                        _log?.LogInfo("Ignition SFX played via Headlights (" + (ignitionOn ? "ON" : "OFF") + ")");
+                        _log?.LogInfo("Ignition SFX played via Headlights");
                     }
                 }
                 return;

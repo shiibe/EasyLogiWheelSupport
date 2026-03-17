@@ -20,23 +20,26 @@ namespace EasyLogiWheelSupport
 
         private static ConfigEntry<bool> _ignoreXInputControllers;
 
-        internal const string PrefKeyFfbEnabled = "G920FfbEnabled";
-        internal const string PrefKeyFfbOverall = "G920FfbOverall";
-        internal const string PrefKeyFfbSpring = "G920FfbSpring";
-        internal const string PrefKeyFfbDamper = "G920FfbDamper";
-        internal const string PrefKeyWheelRange = "G920WheelRange";
+        private const string PrefPrefixNew = "ELWS_";
+        private const string PrefPrefixOld = "G920";
 
-        internal const string PrefKeyCalSteerCenter = "G920Cal_SteerCenter";
-        internal const string PrefKeyCalSteerLeft = "G920Cal_SteerLeft";
-        internal const string PrefKeyCalSteerRight = "G920Cal_SteerRight";
+        internal const string PrefKeyFfbEnabled = "ELWS_FfbEnabled";
+        internal const string PrefKeyFfbOverall = "ELWS_FfbOverall";
+        internal const string PrefKeyFfbSpring = "ELWS_FfbSpring";
+        internal const string PrefKeyFfbDamper = "ELWS_FfbDamper";
+        internal const string PrefKeyWheelRange = "ELWS_WheelRange";
 
-        internal const string PrefKeyCalThrottleReleased = "G920Cal_ThrottleReleased";
-        internal const string PrefKeyCalThrottlePressed = "G920Cal_ThrottlePressed";
-        internal const string PrefKeyCalBrakeReleased = "G920Cal_BrakeReleased";
-        internal const string PrefKeyCalBrakePressed = "G920Cal_BrakePressed";
+        internal const string PrefKeyCalSteerCenter = "ELWS_Cal_SteerCenter";
+        internal const string PrefKeyCalSteerLeft = "ELWS_Cal_SteerLeft";
+        internal const string PrefKeyCalSteerRight = "ELWS_Cal_SteerRight";
 
-        internal const string PrefKeyCalClutchReleased = "G920Cal_ClutchReleased";
-        internal const string PrefKeyCalClutchPressed = "G920Cal_ClutchPressed";
+        internal const string PrefKeyCalThrottleReleased = "ELWS_Cal_ThrottleReleased";
+        internal const string PrefKeyCalThrottlePressed = "ELWS_Cal_ThrottlePressed";
+        internal const string PrefKeyCalBrakeReleased = "ELWS_Cal_BrakeReleased";
+        internal const string PrefKeyCalBrakePressed = "ELWS_Cal_BrakePressed";
+
+        internal const string PrefKeyCalClutchReleased = "ELWS_Cal_ClutchReleased";
+        internal const string PrefKeyCalClutchPressed = "ELWS_Cal_ClutchPressed";
 
         internal enum PedalKind
         {
@@ -57,36 +60,36 @@ namespace EasyLogiWheelSupport
             slider1 = 7
         }
 
-        internal const string PrefKeySteeringGain = "G920SteerGain";
-        internal const string PrefKeySteeringDeadzone = "G920SteerDeadzone";
-        internal const string PrefKeySteeringAxis = "G920Axis_Steer";
-        internal const string PrefKeyThrottleAxis = "G920Axis_Throttle";
-        internal const string PrefKeyBrakeAxis = "G920Axis_Brake";
-        internal const string PrefKeyClutchAxis = "G920Axis_Clutch";
+        internal const string PrefKeySteeringGain = "ELWS_SteerGain";
+        internal const string PrefKeySteeringDeadzone = "ELWS_SteerDeadzone";
+        internal const string PrefKeySteeringAxis = "ELWS_Axis_Steer";
+        internal const string PrefKeyThrottleAxis = "ELWS_Axis_Throttle";
+        internal const string PrefKeyBrakeAxis = "ELWS_Axis_Brake";
+        internal const string PrefKeyClutchAxis = "ELWS_Axis_Clutch";
 
-        internal const string PrefKeyManualTransmissionEnabled = "G920ManualTransmission";
-        internal const string PrefKeyHudShowSpeed = "G920HudShowSpeed";
-        internal const string PrefKeyHudShowTach = "G920HudShowTach";
-        internal const string PrefKeyHudShowGear = "G920HudShowGear";
-        internal const string PrefKeyHudSpeedUnits = "G920HudSpeedUnits";
-        internal const string PrefKeyHudReadoutAnchor = "G920HudReadoutAnchor";
+        internal const string PrefKeyManualTransmissionEnabled = "ELWS_ManualTransmission";
+        internal const string PrefKeyHudShowSpeed = "ELWS_HudShowSpeed";
+        internal const string PrefKeyHudShowTach = "ELWS_HudShowTach";
+        internal const string PrefKeyHudShowGear = "ELWS_HudShowGear";
+        internal const string PrefKeyHudSpeedUnits = "ELWS_HudSpeedUnits";
+        internal const string PrefKeyHudReadoutAnchor = "ELWS_HudReadoutAnchor";
 
-        internal const string PrefKeyHudSpeedAnchor = "G920HudSpeedAnchor";
-        internal const string PrefKeyHudTachAnchor = "G920HudTachAnchor";
-        internal const string PrefKeyHudGearAnchor = "G920HudGearAnchor";
+        internal const string PrefKeyHudSpeedAnchor = "ELWS_HudSpeedAnchor";
+        internal const string PrefKeyHudTachAnchor = "ELWS_HudTachAnchor";
+        internal const string PrefKeyHudGearAnchor = "ELWS_HudGearAnchor";
 
-        internal const string PrefKeyIgnitionEnabled = "G920IgnitionEnabled";
-        internal const string PrefKeyIgnitionFeatureEnabled = "G920IgnitionFeatureEnabled";
+        internal const string PrefKeyIgnitionEnabled = "ELWS_IgnitionEnabled";
+        internal const string PrefKeyIgnitionFeatureEnabled = "ELWS_IgnitionFeatureEnabled";
 
-        internal const string PrefKeyIgnitionSfxEnabled = "G920IgnitionSfxEnabled";
+        internal const string PrefKeyIgnitionSfxEnabled = "ELWS_IgnitionSfxEnabled";
 
-        internal const string PrefKeyHeadlightIntensityMult = "G920HeadlightIntensityMult";
-        internal const string PrefKeyHeadlightRangeMult = "G920HeadlightRangeMult";
+        internal const string PrefKeyHeadlightIntensityMult = "ELWS_HeadlightIntensityMult";
+        internal const string PrefKeyHeadlightRangeMult = "ELWS_HeadlightRangeMult";
 
-        internal const string PrefKeyManualSpeedMultForward = "G920ManualSpeedMultFwd";
-        internal const string PrefKeyManualSpeedMultReverse = "G920ManualSpeedMultRev";
+        internal const string PrefKeyManualSpeedMultForward = "ELWS_ManualSpeedMultFwd";
+        internal const string PrefKeyManualSpeedMultReverse = "ELWS_ManualSpeedMultRev";
 
-        internal const string PrefKeyManualGearCount = "G920ManualGearCount";
+        internal const string PrefKeyManualGearCount = "ELWS_ManualGearCount";
 
         internal static void ClearAllUserPrefs()
         {
@@ -142,6 +145,13 @@ namespace EasyLogiWheelSupport
                 if (!string.IsNullOrWhiteSpace(k))
                 {
                     PlayerPrefs.DeleteKey(k);
+
+                    // Also delete legacy G920_* key.
+                    string old = OldKeyFromNew(k);
+                    if (!string.IsNullOrEmpty(old))
+                    {
+                        PlayerPrefs.DeleteKey(old);
+                    }
                 }
             }
 
@@ -150,10 +160,20 @@ namespace EasyLogiWheelSupport
             {
                 foreach (ButtonBindAction action in (ButtonBindAction[])Enum.GetValues(typeof(ButtonBindAction)))
                 {
-                    PlayerPrefs.DeleteKey(GetBindPrefKey(layer, action));
-                    PlayerPrefs.DeleteKey(GetLegacyBindPrefKey(layer, action));
+                    string nk = GetBindPrefKey(layer, action);
+                    string nkl = GetLegacyBindPrefKey(layer, action);
+                    PlayerPrefs.DeleteKey(nk);
+                    PlayerPrefs.DeleteKey(nkl);
+
+                    string ok = OldKeyFromNew(nk);
+                    string okl = OldKeyFromNew(nkl);
+                    if (!string.IsNullOrEmpty(ok)) PlayerPrefs.DeleteKey(ok);
+                    if (!string.IsNullOrEmpty(okl)) PlayerPrefs.DeleteKey(okl);
                 }
             }
+
+            // Migration flag.
+            PlayerPrefs.DeleteKey(PrefKeyPrefMigrationDone);
 
             PlayerPrefs.Save();
         }
@@ -214,18 +234,170 @@ namespace EasyLogiWheelSupport
         }
 
         private const int BindingPovOffset = 1000;
-        private const string PrefKeyBindModifier = "G920Bind_Modifier";
+        private const string PrefKeyBindModifier = "ELWS_Bind_Modifier";
+
+        private const string PrefKeyPrefMigrationDone = "ELWS_MigratedFromG920_v1";
+
+        private static string OldKeyFromNew(string newKey)
+        {
+            if (string.IsNullOrWhiteSpace(newKey))
+            {
+                return string.Empty;
+            }
+            if (!newKey.StartsWith(PrefPrefixNew, StringComparison.Ordinal))
+            {
+                return string.Empty;
+            }
+            return PrefPrefixOld + newKey.Substring(PrefPrefixNew.Length);
+        }
+
+        internal static void MigratePrefsFromG920IfNeeded()
+        {
+            if (PlayerPrefs.GetInt(PrefKeyPrefMigrationDone, 0) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                // Lists must include all fixed keys. Bindings are handled separately.
+                string[] intKeys =
+                {
+                    PrefKeyFfbEnabled,
+                    PrefKeyWheelRange,
+
+                    PrefKeySteeringAxis,
+                    PrefKeyThrottleAxis,
+                    PrefKeyBrakeAxis,
+                    PrefKeyClutchAxis,
+
+                    PrefKeyCalSteerCenter,
+                    PrefKeyCalSteerLeft,
+                    PrefKeyCalSteerRight,
+                    PrefKeyCalThrottleReleased,
+                    PrefKeyCalThrottlePressed,
+                    PrefKeyCalBrakeReleased,
+                    PrefKeyCalBrakePressed,
+                    PrefKeyCalClutchReleased,
+                    PrefKeyCalClutchPressed,
+
+                    PrefKeyManualTransmissionEnabled,
+                    PrefKeyHudShowSpeed,
+                    PrefKeyHudShowTach,
+                    PrefKeyHudShowGear,
+                    PrefKeyHudSpeedUnits,
+                    PrefKeyHudReadoutAnchor,
+                    PrefKeyHudSpeedAnchor,
+                    PrefKeyHudTachAnchor,
+                    PrefKeyHudGearAnchor,
+                    PrefKeyIgnitionEnabled,
+                    PrefKeyIgnitionFeatureEnabled,
+                    PrefKeyIgnitionSfxEnabled,
+                    PrefKeyManualGearCount,
+
+                    PrefKeyBindModifier
+                };
+
+                string[] floatKeys =
+                {
+                    PrefKeyFfbOverall,
+                    PrefKeyFfbSpring,
+                    PrefKeyFfbDamper,
+                    PrefKeySteeringGain,
+                    PrefKeySteeringDeadzone,
+                    PrefKeyHeadlightIntensityMult,
+                    PrefKeyHeadlightRangeMult,
+                    PrefKeyManualSpeedMultForward,
+                    PrefKeyManualSpeedMultReverse
+                };
+
+                int migrated = 0;
+
+                for (int i = 0; i < intKeys.Length; i++)
+                {
+                    string nk = intKeys[i];
+                    string ok = OldKeyFromNew(nk);
+                    if (string.IsNullOrEmpty(ok))
+                    {
+                        continue;
+                    }
+                    if (!PlayerPrefs.HasKey(nk) && PlayerPrefs.HasKey(ok))
+                    {
+                        PlayerPrefs.SetInt(nk, PlayerPrefs.GetInt(ok));
+                        migrated++;
+                    }
+                }
+
+                for (int i = 0; i < floatKeys.Length; i++)
+                {
+                    string nk = floatKeys[i];
+                    string ok = OldKeyFromNew(nk);
+                    if (string.IsNullOrEmpty(ok))
+                    {
+                        continue;
+                    }
+                    if (!PlayerPrefs.HasKey(nk) && PlayerPrefs.HasKey(ok))
+                    {
+                        PlayerPrefs.SetFloat(nk, PlayerPrefs.GetFloat(ok));
+                        migrated++;
+                    }
+                }
+
+                // Bindings.
+                foreach (BindingLayer layer in (BindingLayer[])Enum.GetValues(typeof(BindingLayer)))
+                {
+                    foreach (ButtonBindAction action in (ButtonBindAction[])Enum.GetValues(typeof(ButtonBindAction)))
+                    {
+                        string newStable = GetBindPrefKey(layer, action);
+                        if (PlayerPrefs.HasKey(newStable))
+                        {
+                            continue;
+                        }
+
+                        string oldStable = OldKeyFromNew(newStable);
+                        if (!string.IsNullOrEmpty(oldStable) && PlayerPrefs.HasKey(oldStable))
+                        {
+                            PlayerPrefs.SetInt(newStable, PlayerPrefs.GetInt(oldStable));
+                            migrated++;
+                            continue;
+                        }
+
+                        // Old legacy format -> new stable.
+                        string oldLegacy = OldKeyFromNew(GetLegacyBindPrefKey(layer, action));
+                        if (!string.IsNullOrEmpty(oldLegacy) && PlayerPrefs.HasKey(oldLegacy))
+                        {
+                            PlayerPrefs.SetInt(newStable, PlayerPrefs.GetInt(oldLegacy));
+                            migrated++;
+                        }
+                    }
+                }
+
+                PlayerPrefs.SetInt(PrefKeyPrefMigrationDone, 1);
+                PlayerPrefs.Save();
+                if (migrated > 0)
+                {
+                    _log?.LogInfo("Migrated " + migrated + " PlayerPrefs keys from G920_* to ELWS_*");
+                }
+            }
+            catch (Exception e)
+            {
+                _log?.LogWarning("Prefs migration failed: " + e.Message);
+                // Still mark done to avoid repeated failures.
+                PlayerPrefs.SetInt(PrefKeyPrefMigrationDone, 1);
+                PlayerPrefs.Save();
+            }
+        }
 
         private static string GetBindPrefKey(BindingLayer layer, ButtonBindAction action)
         {
             // Stable key: do not depend on enum ToString().
-            return "G920Bind_" + (int)layer + "_" + (int)action;
+            return "ELWS_Bind_" + (int)layer + "_" + (int)action;
         }
 
         private static string GetLegacyBindPrefKey(BindingLayer layer, ButtonBindAction action)
         {
             // v0.1 pre-release used enum names.
-            return "G920Bind_" + layer + "_" + action;
+            return "ELWS_Bind_" + layer + "_" + action;
         }
 
         internal static BindingInput GetBinding(BindingLayer layer, ButtonBindAction action)

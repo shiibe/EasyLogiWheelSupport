@@ -137,8 +137,8 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 - HUD: shows a `START xx%` indicator while the engine is starting.
 - Ignition OFF: disables throttle, turns off headlights + radio, mutes engine, and stops fuel consumption.
 - Optional SFX:
-  - `ignition_on.wav`: place next to `EasyLogiWheelSupport.dll` (or in `sfx/` next to it), or set `Ignition/sfx_on_path` in the config.
-  - `ignition_off.wav`: place next to `EasyLogiWheelSupport.dll` (or in `sfx/` next to it). If missing, the mod uses the stock headlights OFF click as the engine-off sound.
+  - `ignition_on.wav`: place in `sfx/` next to `EasyLogiWheelSupport.dll` (recommended: `sfx/ignition_on.wav`).
+  - Or set `Ignition/sfx_on_path` to a file name inside that `sfx/` folder.
 - `Vehicle -> Ignition` can disable ignition behavior entirely (truck always on).
 - `Vehicle -> Ignition SFX` toggles ignition sounds.
 
