@@ -70,7 +70,6 @@ namespace EasyLogiWheelSupport
             Back = 1,
             MapItems = 2,
             Pause = 3,
-            JobSelection = 4,
             Camera = 5,
             ResetVehicle = 6,
             Headlights = 7,
@@ -228,23 +227,6 @@ namespace EasyLogiWheelSupport
             return true;
         }
 
-        private static bool _openJobsRequested;
-
-        internal static void RequestOpenJobs()
-        {
-            _openJobsRequested = true;
-        }
-
-        internal static bool ConsumeOpenJobsRequested()
-        {
-            if (!_openJobsRequested)
-            {
-                return false;
-            }
-            _openJobsRequested = false;
-            return true;
-        }
-
         internal static BindingInput GetModifierBinding()
         {
             int raw = PlayerPrefs.GetInt(PrefKeyBindModifier, -1);
@@ -323,8 +305,6 @@ namespace EasyLogiWheelSupport
                     return "Map/Items";
                 case ButtonBindAction.Pause:
                     return "Pause";
-                case ButtonBindAction.JobSelection:
-                    return "Jobs";
                 case ButtonBindAction.Camera:
                     return "Camera";
                 case ButtonBindAction.ResetVehicle:
@@ -336,11 +316,11 @@ namespace EasyLogiWheelSupport
                 case ButtonBindAction.RadioPower:
                     return "Radio Pwr";
                 case ButtonBindAction.RadioScanToggle:
-                    return "Scan Tog";
-                case ButtonBindAction.RadioScanLeft:
-                    return "Channels";
-                case ButtonBindAction.RadioScanRight:
                     return "Scan";
+                case ButtonBindAction.RadioScanLeft:
+                    return "Prev Ch";
+                case ButtonBindAction.RadioScanRight:
+                    return "Next Ch";
                 default:
                     return action.ToString();
             }
@@ -610,7 +590,7 @@ namespace EasyLogiWheelSupport
 
         internal static float GetFfbOverallGain()
         {
-            return Mathf.Clamp01(PlayerPrefs.GetFloat(PrefKeyFfbOverall, 0.75f));
+            return Mathf.Clamp01(PlayerPrefs.GetFloat(PrefKeyFfbOverall, 0.55f));
         }
 
         internal static void SetFfbOverallGain(float value)
@@ -670,7 +650,7 @@ namespace EasyLogiWheelSupport
         internal static void ResetFfbDefaults()
         {
             PlayerPrefs.SetInt(PrefKeyFfbEnabled, 1);
-            PlayerPrefs.SetFloat(PrefKeyFfbOverall, 0.75f);
+            PlayerPrefs.SetFloat(PrefKeyFfbOverall, 0.55f);
             PlayerPrefs.SetFloat(PrefKeyFfbSpring, 0.60f);
             PlayerPrefs.SetFloat(PrefKeyFfbDamper, 0.20f);
 
@@ -1368,6 +1348,58 @@ namespace EasyLogiWheelSupport
             }
         }
 
+        internal enum FfbTestEffect
+        {
+            None = 0,
+            Shake = 1,
+            Bumpy = 2
+        }
+
+        private static FfbTestEffect _ffbTestEffect;
+        private static float _ffbTestEndTime;
+
+        internal static void StartFfbTest(FfbTestEffect effect, float durationSeconds = 2.5f)
+        {
+            if (effect == FfbTestEffect.None)
+            {
+                StopFfbTest();
+                return;
+            }
+
+            _ffbTestEffect = effect;
+            _ffbTestEndTime = Time.unscaledTime + Mathf.Clamp(durationSeconds, 0.25f, 10f);
+            LogDebug("FFB test start: " + effect);
+        }
+
+        internal static void StopFfbTest()
+        {
+            if (_ffbTestEffect != FfbTestEffect.None)
+            {
+                LogDebug("FFB test stop");
+            }
+            _ffbTestEffect = FfbTestEffect.None;
+            _ffbTestEndTime = 0f;
+            StopAllForces();
+        }
+
+        internal static bool IsFfbTestActive()
+        {
+            if (_ffbTestEffect == FfbTestEffect.None)
+            {
+                return false;
+            }
+
+            if (Time.unscaledTime < _ffbTestEndTime)
+            {
+                return true;
+            }
+
+            // Auto-clear after timeout so the UI reflects reality.
+            _ffbTestEffect = FfbTestEffect.None;
+            _ffbTestEndTime = 0f;
+            return false;
+        }
+
         private static void UpdateFfb()
         {
             if (!ShouldApply())
@@ -1435,6 +1467,29 @@ namespace EasyLogiWheelSupport
             int springCoeff = Mathf.RoundToInt(Mathf.Lerp(20f, 95f, Mathf.Clamp01(speed / 100f)) * GetFfbSpringGain());
             springCoeff = Mathf.Clamp(springCoeff, 0, 100);
             LogitechGSDK.LogiPlaySpringForce(_logiIndex, 0, springCoeff, springCoeff);
+
+            if (IsFfbTestActive())
+            {
+                // Tests should reflect current overall/spring/damper settings, so keep the baseline forces above
+                // and only override the "road effect" layer.
+                LogitechGSDK.LogiStopDirtRoadEffect(_logiIndex);
+                LogitechGSDK.LogiStopBumpyRoadEffect(_logiIndex);
+
+                if (_ffbTestEffect == FfbTestEffect.Shake)
+                {
+                    // Oscillating constant force.
+                    int magnitude = Mathf.RoundToInt(Mathf.Sin(Time.unscaledTime * 14f) * 70f);
+                    magnitude = Mathf.Clamp(magnitude, -100, 100);
+                    LogitechGSDK.LogiPlayConstantForce(_logiIndex, magnitude);
+                }
+                else if (_ffbTestEffect == FfbTestEffect.Bumpy)
+                {
+                    LogitechGSDK.LogiStopConstantForce(_logiIndex);
+                    LogitechGSDK.LogiPlayBumpyRoadEffect(_logiIndex, 25);
+                }
+
+                return;
+            }
 
             if (!menuMode && _isOffRoad && speed > 5f)
             {

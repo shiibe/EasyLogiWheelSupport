@@ -92,10 +92,10 @@ Quick start
 5. Go to `Bindings` and set `Modifier` + your button bindings.
 
 ## Configuration
-- Config file: `BepInEx/config/shibe.easydeliveryco.wheel.cfg`
+- Config file: `BepInEx/config/shibe.easydeliveryco.logiwheel.cfg`
 
 Config migration
-- If you previously used `shibe.easydeliveryco.g920.cfg`, the mod will copy it to the new filename on startup.
+- If you previously used `shibe.easydeliveryco.wheel.cfg` or `shibe.easydeliveryco.g920.cfg`, the mod will copy it to the new filename on startup.
 
 ## In-game menu
 - Click `wheel.exe` in the main menu to adjust wheel/FFB/settings.
@@ -126,9 +126,7 @@ Calibration
 - No FFB: verify `LogitechSteeringWheelEnginesWrapper.dll` is next to `EasyLogiWheelSupport.dll`.
 - Pedals stuck / inverted: run `wheel.exe` -> Calibration Wizard.
 - Can't bind D-pad: enter binding capture and press a DP direction (cursor movement is disabled on that screen).
-- Jobs binding opens nothing: make sure you're not currently inside `wheel.exe` (bindings are disabled while the wheel menu is open).
 
 ## Build
-- In `G920-Workspace` profile: install `BepInEx-BepInExPack-5.4.2304` so the local reference DLLs exist.
 - Build: `dotnet build EasyLogiWheelSupport/EasyLogiWheelSupport.csproj -c Release`
-- Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 0.1.0`
+- Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 1.0.0`

@@ -16,6 +16,7 @@ $manifestPath = Join-Path $repoRoot "manifest.json"
 $changelogPath = Join-Path $repoRoot "CHANGELOG.md"
 $readmePath = Join-Path $repoRoot "README.md"
 $iconPath = Join-Path $repoRoot "assets\icon.png"
+$thirdPartyNoticesPath = Join-Path $repoRoot "THIRDPARTY_NOTICES.md"
 
 if (-not (Test-Path $distRoot))
 {
@@ -64,6 +65,11 @@ Write-Host "Syncing Thunderstore metadata..."
 Copy-Item $manifestPath -Destination (Join-Path $distRoot "manifest.json") -Force
 Copy-Item $changelogPath -Destination (Join-Path $distRoot "CHANGELOG.md") -Force
 Copy-Item $readmePath -Destination (Join-Path $distRoot "README.md") -Force
+if (Test-Path $thirdPartyNoticesPath)
+{
+    Copy-Item $thirdPartyNoticesPath -Destination (Join-Path $distRoot "THIRDPARTY_NOTICES.md") -Force
+    Copy-Item $thirdPartyNoticesPath -Destination (Join-Path $distPlugins "THIRDPARTY_NOTICES.md") -Force
+}
 if (Test-Path $iconPath)
 {
     Copy-Item $iconPath -Destination (Join-Path $distRoot "icon.png") -Force

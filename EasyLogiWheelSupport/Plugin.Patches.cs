@@ -33,7 +33,6 @@ namespace EasyLogiWheelSupport
             var harmony = new Harmony(PluginGuid);
 
             PatchByName(harmony, "DesktopDotExe", "Setup", postfix: nameof(DesktopDotExe_Setup_Postfix));
-            PatchByName(harmony, "DesktopDotExe", "Draw", postfix: nameof(DesktopDotExe_Draw_Postfix));
             PatchByName(harmony, "sCarController", "Update", prefix: nameof(SCarController_Update_Prefix));
             PatchByName(harmony, "sInputManager", "GetInput", postfix: nameof(SInputManager_GetInput_Postfix));
 
@@ -58,12 +57,23 @@ namespace EasyLogiWheelSupport
                     return;
                 }
 
-                string oldPath = Path.Combine(dir, "shibe.easydeliveryco.g920.cfg");
-                if (File.Exists(oldPath) && !File.Exists(newPath))
+                string oldPath1 = Path.Combine(dir, "shibe.easydeliveryco.g920.cfg");
+                string oldPath2 = Path.Combine(dir, "shibe.easydeliveryco.wheel.cfg");
+                string source = null;
+                if (File.Exists(oldPath2))
+                {
+                    source = oldPath2;
+                }
+                else if (File.Exists(oldPath1))
+                {
+                    source = oldPath1;
+                }
+
+                if (source != null && !File.Exists(newPath))
                 {
                     Directory.CreateDirectory(dir);
-                    File.Copy(oldPath, newPath);
-                    Logger.LogInfo($"Migrated config: {Path.GetFileName(oldPath)} -> {Path.GetFileName(newPath)}");
+                    File.Copy(source, newPath);
+                    Logger.LogInfo($"Migrated config: {Path.GetFileName(source)} -> {Path.GetFileName(newPath)}");
                 }
             }
             catch (Exception e)
@@ -140,13 +150,6 @@ namespace EasyLogiWheelSupport
             bool modifierDown = modifier.Kind != BindingKind.None && IsBindingDownForCurrentFrame(modifier);
             BindingLayer layer = modifierDown ? BindingLayer.Modified : BindingLayer.Normal;
 
-            // Don't trigger gameplay/program actions while the wheel menu is open.
-            // (Prevents e.g. Jobs from opening while on the bindings screen.)
-            if (IsWheelMenuActive())
-            {
-                return;
-            }
-
             bool allowPovBinds = !_isInWalkingMode && !PauseSystem.paused && !input.lockInput;
 
             bool Pressed(BindingInput b)
@@ -180,29 +183,26 @@ namespace EasyLogiWheelSupport
             // Disable this while the bindings capture screen is open so the user can bind D-pad directions.
             if (PauseSystem.paused && !IsBindingCaptureActive())
             {
-                if (TryGetPovDir(out int povDir))
+                if (TryGetPov8Vector(out var pov))
                 {
-                    Vector2 mouse = Vector2.zero;
-                    switch (povDir)
-                    {
-                        case 0:
-                            mouse.y = 1f;
-                            break;
-                        case 1:
-                            mouse.x = 1f;
-                            break;
-                        case 2:
-                            mouse.y = -1f;
-                            break;
-                        case 3:
-                            mouse.x = -1f;
-                            break;
-                    }
+                    // Map POV to the menu cursor input. Normalize diagonals so they aren't faster.
+                    Vector2 mouse = -pov;
                     if (mouse != Vector2.zero)
                     {
+                        if (Mathf.Abs(mouse.x) > 0.1f && Mathf.Abs(mouse.y) > 0.1f)
+                        {
+                            mouse.Normalize();
+                        }
                         input.mouseInput = mouse;
                     }
                 }
+            }
+
+            // Don't trigger gameplay/program actions while the wheel menu is open.
+            // Keep D-pad menu cursor active unless we're in binding capture.
+            if (IsWheelMenuActive())
+            {
+                return;
             }
 
             // POV -> walking movement.
@@ -265,18 +265,30 @@ namespace EasyLogiWheelSupport
                 var bind = GetBinding(layer, ButtonBindAction.MapItems);
                 if (bind.Kind != BindingKind.None)
                 {
-                    if (Pressed(bind))
+                    // Context-sensitive, matching the game's intent:
+                    // - Driving: open the job/map program (Map)
+                    // - On foot: open items (Inventory)
+                    if (_isInWalkingMode)
                     {
-                        input.mapPressed = true;
-                        input.inventoryPressed = true;
+                        if (Pressed(bind))
+                        {
+                            input.inventoryPressed = true;
+                        }
+                        if (Released(bind))
+                        {
+                            input.inventoryReleased = true;
+                        }
+                        if (Down(bind))
+                        {
+                            input.inventoryHeld = true;
+                        }
                     }
-                    if (Released(bind))
+                    else
                     {
-                        input.inventoryReleased = true;
-                    }
-                    if (Down(bind))
-                    {
-                        input.inventoryHeld = true;
+                        if (Pressed(bind))
+                        {
+                            input.mapPressed = true;
+                        }
                     }
                 }
             }
@@ -316,20 +328,6 @@ namespace EasyLogiWheelSupport
                 }
             }
 
-            // Job selection (open jobs on Desktop)
-            {
-                var bind = GetBinding(layer, ButtonBindAction.JobSelection);
-                if (bind.Kind != BindingKind.None && Pressed(bind))
-                {
-                    // The game's jobs program lives inside the pause/desktop UI.
-                    // If we're not already paused, request pause so the program becomes visible immediately.
-                    if (!PauseSystem.paused)
-                    {
-                        input.pausePressed = true;
-                    }
-                    RequestOpenJobs();
-                }
-            }
 
             // Horn
             {
@@ -395,41 +393,6 @@ namespace EasyLogiWheelSupport
             }
         }
 
-        private static void DesktopDotExe_Draw_Postfix(object __instance)
-        {
-            if (!ShouldApply() || __instance == null)
-            {
-                return;
-            }
-
-            if (IsWheelMenuActive())
-            {
-                return;
-            }
-
-            // Only open jobs from the in-game pause/desktop UI.
-            if (!PauseSystem.paused)
-            {
-                return;
-            }
-
-            if (!ConsumeOpenJobsRequested())
-            {
-                return;
-            }
-
-            try
-            {
-                if (__instance is DesktopDotExe desktop)
-                {
-                    LogDebug("Bindings: opening jobs");
-                    desktop.OpenFile("jobs");
-                }
-            }
-            catch
-            {
-            }
-        }
 
         #pragma warning disable IDE1006
         private static void SCarController_Update_Prefix(object __instance)

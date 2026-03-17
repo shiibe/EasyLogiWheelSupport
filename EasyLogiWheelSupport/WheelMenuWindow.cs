@@ -19,8 +19,9 @@ namespace EasyLogiWheelSupport
         private enum BindingsPage
         {
             Axes = 0,
-            ButtonsMain = 1,
-            ButtonsVehicle = 2,
+            Global = 1,
+            Vehicle = 2,
+            Radio = 3,
         }
 
         private BindingsPage _bindingsPage;
@@ -45,7 +46,6 @@ namespace EasyLogiWheelSupport
             Plugin.ButtonBindAction.Back,
             Plugin.ButtonBindAction.MapItems,
             Plugin.ButtonBindAction.Pause,
-            Plugin.ButtonBindAction.JobSelection,
             Plugin.ButtonBindAction.Camera,
             Plugin.ButtonBindAction.ResetVehicle,
             Plugin.ButtonBindAction.Headlights,
@@ -147,8 +147,11 @@ namespace EasyLogiWheelSupport
             Plugin.SetFfbPageActive(_page == Page.Ffb);
             Plugin.SetBindingCaptureActive(_page == Page.BindingCapture);
 
-            _util.Label("Wheel Settings", p.x + p.width / 2f, y);
-            y += line + sectionGap;
+            if (_page == Page.Main)
+            {
+                _util.Label("Wheel Settings", p.x + p.width / 2f, y);
+                y += line + sectionGap;
+            }
 
             if (_page == Page.Main)
             {
@@ -270,6 +273,8 @@ namespace EasyLogiWheelSupport
             {
                 Plugin.SetFfbDamperGain(newDamper.Value);
             }
+
+            // FFB test buttons intentionally hidden for initial release.
         }
 
         private void DrawSteering(Rect p, float center, ref float y, float line, float sectionGap)
@@ -357,19 +362,53 @@ namespace EasyLogiWheelSupport
             _util.Label(GetBindingsPageTitle(_bindingsPage), p.x + p.width / 2f, y);
             y += line + sectionGap;
 
+            // Page indicator (page/total)
+            int pageNum = (int)_bindingsPage + 1;
+            int pageTotal = (int)BindingsPage.Radio + 1;
+            _util.Label(pageNum + "/" + pageTotal, p.x + p.width - 18f, p.y + 10f);
+
             if (_bindingsPage == BindingsPage.Axes)
             {
                 DrawBindingsAxes(p, center, ref y, line, sectionGap);
                 return;
             }
 
-            DrawBindingsButtonsPage(p, center, ref y, line, mainPage: _bindingsPage == BindingsPage.ButtonsMain);
+            if (_bindingsPage == BindingsPage.Global)
+            {
+                DrawBindingsButtonsPage(p, center, ref y, line, new[]
+                {
+                    Plugin.ButtonBindAction.InteractOk,
+                    Plugin.ButtonBindAction.Back,
+                    Plugin.ButtonBindAction.MapItems,
+                    Plugin.ButtonBindAction.Pause,
+                    Plugin.ButtonBindAction.ResetVehicle
+                });
+                return;
+            }
+
+            if (_bindingsPage == BindingsPage.Vehicle)
+            {
+                DrawBindingsButtonsPage(p, center, ref y, line, new[]
+                {
+                    Plugin.ButtonBindAction.Headlights,
+                    Plugin.ButtonBindAction.Horn
+                });
+                return;
+            }
+
+            DrawBindingsButtonsPage(p, center, ref y, line, new[]
+            {
+                Plugin.ButtonBindAction.RadioPower,
+                Plugin.ButtonBindAction.RadioScanRight,
+                Plugin.ButtonBindAction.RadioScanLeft,
+                Plugin.ButtonBindAction.RadioScanToggle
+            });
         }
 
         private static BindingsPage NextBindingsPage(BindingsPage p)
         {
             int v = (int)p + 1;
-            if (v > (int)BindingsPage.ButtonsVehicle)
+            if (v > (int)BindingsPage.Radio)
             {
                 v = (int)BindingsPage.Axes;
             }
@@ -381,7 +420,7 @@ namespace EasyLogiWheelSupport
             int v = (int)p - 1;
             if (v < (int)BindingsPage.Axes)
             {
-                v = (int)BindingsPage.ButtonsVehicle;
+                v = (int)BindingsPage.Radio;
             }
             return (BindingsPage)v;
         }
@@ -392,12 +431,14 @@ namespace EasyLogiWheelSupport
             {
                 case BindingsPage.Axes:
                     return "Axis Mapping";
-                case BindingsPage.ButtonsMain:
-                    return "Buttons";
-                case BindingsPage.ButtonsVehicle:
+                case BindingsPage.Global:
+                    return "Global";
+                case BindingsPage.Vehicle:
                     return "Vehicle";
+                case BindingsPage.Radio:
+                    return "Radio";
                 default:
-                    return "Buttons";
+                    return "Global";
             }
         }
 
@@ -414,26 +455,26 @@ namespace EasyLogiWheelSupport
             Plugin.AxisId brakeAxis = Plugin.GetBrakeAxis();
             Plugin.AxisId clutchAxis = Plugin.GetClutchAxis();
 
-            if (_util.CycleButton("Steering", steerAxis.ToString(), center, y))
+            if (_util.CycleButtonRaw("Steering", steerAxis.ToString(), center, y))
             {
                 Plugin.SetSteeringAxis(NextAxis(steerAxis));
                 _calStep = CalStep.None;
             }
             y += line;
-            if (_util.CycleButton("Throttle", throttleAxis.ToString(), center, y))
+            if (_util.CycleButtonRaw("Throttle", throttleAxis.ToString(), center, y))
             {
                 Plugin.SetThrottleAxis(NextAxis(throttleAxis));
                 _calStep = CalStep.None;
             }
             y += line;
-            if (_util.CycleButton("Brake", brakeAxis.ToString(), center, y))
+            if (_util.CycleButtonRaw("Brake", brakeAxis.ToString(), center, y))
             {
                 Plugin.SetBrakeAxis(NextAxis(brakeAxis));
                 _calStep = CalStep.None;
             }
 
             y += line;
-            if (_util.CycleButton("Clutch", clutchAxis.ToString(), center, y))
+            if (_util.CycleButtonRaw("Clutch", clutchAxis.ToString(), center, y))
             {
                 Plugin.SetClutchAxis(NextAxis(clutchAxis));
                 _calStep = CalStep.None;
@@ -449,7 +490,7 @@ namespace EasyLogiWheelSupport
             _util.Label($"brk={rawBrk}  clu={rawClu}", p.x + p.width / 2f, y);
         }
 
-        private void DrawBindingsButtonsPage(Rect p, float center, ref float y, float line, bool mainPage)
+        private void DrawBindingsButtonsPage(Rect p, float center, ref float y, float line, Plugin.ButtonBindAction[] actions)
         {
             float cx = p.x + p.width / 2f;
 
@@ -460,28 +501,7 @@ namespace EasyLogiWheelSupport
                 Plugin.LogDebug("Bindings: start capture for modifier");
                 return;
             }
-            y += line;
-
-            Plugin.ButtonBindAction[] actions = mainPage
-                ? new[]
-                {
-                    Plugin.ButtonBindAction.InteractOk,
-                    Plugin.ButtonBindAction.Back,
-                    Plugin.ButtonBindAction.MapItems,
-                    Plugin.ButtonBindAction.Pause,
-                    Plugin.ButtonBindAction.JobSelection,
-                    Plugin.ButtonBindAction.Camera,
-                    Plugin.ButtonBindAction.ResetVehicle,
-                    Plugin.ButtonBindAction.Headlights
-                }
-                : new[]
-                {
-                    Plugin.ButtonBindAction.Horn,
-                    Plugin.ButtonBindAction.RadioPower,
-                    Plugin.ButtonBindAction.RadioScanRight,
-                    Plugin.ButtonBindAction.RadioScanLeft,
-                    Plugin.ButtonBindAction.RadioScanToggle
-                };
+            y += line + 3f;
 
             int maxVisible = 8;
             for (int i = 0; i < actions.Length && i < maxVisible; i++)

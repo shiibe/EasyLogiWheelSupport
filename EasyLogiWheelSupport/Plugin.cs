@@ -5,8 +5,8 @@ namespace EasyLogiWheelSupport
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public partial class Plugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "shibe.easydeliveryco.wheel";
-        public const string PluginName = "Wheel Support";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginGuid = "shibe.easydeliveryco.logiwheel";
+        public const string PluginName = "LogiWheel";
+        public const string PluginVersion = "1.0.0";
     }
 }
