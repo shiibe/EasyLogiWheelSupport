@@ -2,7 +2,7 @@ namespace EasyLogiWheelSupport
 {
     public partial class Plugin
     {
-        private static void LogDebug(string message)
+        internal static void LogDebug(string message)
         {
             if (_debugLogging == null || !_debugLogging.Value || _log == null)
             {

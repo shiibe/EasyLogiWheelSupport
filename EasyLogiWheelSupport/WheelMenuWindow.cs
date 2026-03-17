@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace EasyLogiWheelSupport
@@ -14,6 +16,46 @@ namespace EasyLogiWheelSupport
         private Page _page;
         private CalStep _calStep;
 
+        private enum BindingsPage
+        {
+            Axes = 0,
+            ButtonsMain = 1,
+            ButtonsVehicle = 2,
+        }
+
+        private BindingsPage _bindingsPage;
+
+        private bool _bindingCaptureModifier;
+        private Plugin.ButtonBindAction _bindingCaptureAction;
+
+        private bool _bindingDupConfirmActive;
+        private Plugin.BindingInput _bindingDupPendingCaptured;
+        private Plugin.BindingLayer _bindingDupPendingLayer;
+        private List<BindingConflict> _bindingDupConflicts;
+
+        private struct BindingConflict
+        {
+            public Plugin.BindingLayer Layer;
+            public Plugin.ButtonBindAction Action;
+        }
+
+        private static readonly Plugin.ButtonBindAction[] AllBindableActions =
+        {
+            Plugin.ButtonBindAction.InteractOk,
+            Plugin.ButtonBindAction.Back,
+            Plugin.ButtonBindAction.MapItems,
+            Plugin.ButtonBindAction.Pause,
+            Plugin.ButtonBindAction.JobSelection,
+            Plugin.ButtonBindAction.Camera,
+            Plugin.ButtonBindAction.ResetVehicle,
+            Plugin.ButtonBindAction.Headlights,
+            Plugin.ButtonBindAction.Horn,
+            Plugin.ButtonBindAction.RadioPower,
+            Plugin.ButtonBindAction.RadioScanRight,
+            Plugin.ButtonBindAction.RadioScanLeft,
+            Plugin.ButtonBindAction.RadioScanToggle
+        };
+
         private enum CalStep
         {
             None = 0,
@@ -23,7 +65,9 @@ namespace EasyLogiWheelSupport
             ThrottleReleased = 4,
             ThrottlePressed = 5,
             BrakeReleased = 6,
-            BrakePressed = 7
+            BrakePressed = 7,
+            ClutchReleased = 8,
+            ClutchPressed = 9
         }
 
         private enum Page
@@ -33,7 +77,8 @@ namespace EasyLogiWheelSupport
             Steering = 2,
             Calibration = 3,
             CalibrationWizard = 4,
-            Bindings = 5
+            Bindings = 5,
+            BindingCapture = 6
         }
 
         public void FrameUpdate(DesktopDotExe.WindowView view)
@@ -74,6 +119,15 @@ namespace EasyLogiWheelSupport
                 return;
             }
 
+            if (_page == Page.BindingCapture)
+            {
+                Plugin.LogDebug("Bindings: capture cancelled via back button");
+                _bindingCaptureModifier = false;
+                _bindingDupConfirmActive = false;
+                _page = Page.Bindings;
+                return;
+            }
+
             if (_page != Page.Main)
             {
                 _calStep = CalStep.None;
@@ -91,6 +145,7 @@ namespace EasyLogiWheelSupport
             // Let the plugin know the wheel menu is open (used to keep FFB on while paused).
             Plugin.SetWheelMenuActive(true);
             Plugin.SetFfbPageActive(_page == Page.Ffb);
+            Plugin.SetBindingCaptureActive(_page == Page.BindingCapture);
 
             _util.Label("Wheel Settings", p.x + p.width / 2f, y);
             y += line + sectionGap;
@@ -114,6 +169,10 @@ namespace EasyLogiWheelSupport
             else if (_page == Page.CalibrationWizard)
             {
                 DrawCalibrationWizard(p, center, ref y, line, sectionGap);
+            }
+            else if (_page == Page.BindingCapture)
+            {
+                DrawBindingCapture(p, center, ref y, line, sectionGap);
             }
             else
             {
@@ -145,6 +204,7 @@ namespace EasyLogiWheelSupport
             if (_util.FancyButton("Bindings", cx, y))
             {
                 _page = Page.Bindings;
+                Plugin.LogDebug("Bindings: opened bindings menu");
             }
 
             // SDK status at bottom.
@@ -270,19 +330,80 @@ namespace EasyLogiWheelSupport
             y += line;
 
             float cx = p.x + p.width / 2f;
-            float backY = p.y + p.height - 18f;
-            if (_util.SimpleButton("Back", cx, backY))
+            float navY = p.y + p.height - 18f;
+
+            // Bottom navigation: Prev / Back / Next
+            float prevX = p.x + 40f;
+            float nextX = p.x + p.width - 40f;
+
+            if (_util.SimpleButtonRaw("Prev", prevX, navY))
+            {
+                _bindingsPage = PrevBindingsPage(_bindingsPage);
+                Plugin.LogDebug("Bindings: page -> " + _bindingsPage);
+            }
+            if (_util.SimpleButton("Back", cx, navY))
             {
                 _page = Page.Main;
                 return;
             }
+            if (_util.SimpleButtonRaw("Next", nextX, navY))
+            {
+                _bindingsPage = NextBindingsPage(_bindingsPage);
+                Plugin.LogDebug("Bindings: page -> " + _bindingsPage);
+            }
 
             y += sectionGap;
 
-            _util.Label("Axis Mapping", p.x + p.width / 2f, y);
-            y += line;
+            _util.Label(GetBindingsPageTitle(_bindingsPage), p.x + p.width / 2f, y);
+            y += line + sectionGap;
 
-            if (!Plugin.TryGetLogiState(out var state))
+            if (_bindingsPage == BindingsPage.Axes)
+            {
+                DrawBindingsAxes(p, center, ref y, line, sectionGap);
+                return;
+            }
+
+            DrawBindingsButtonsPage(p, center, ref y, line, mainPage: _bindingsPage == BindingsPage.ButtonsMain);
+        }
+
+        private static BindingsPage NextBindingsPage(BindingsPage p)
+        {
+            int v = (int)p + 1;
+            if (v > (int)BindingsPage.ButtonsVehicle)
+            {
+                v = (int)BindingsPage.Axes;
+            }
+            return (BindingsPage)v;
+        }
+
+        private static BindingsPage PrevBindingsPage(BindingsPage p)
+        {
+            int v = (int)p - 1;
+            if (v < (int)BindingsPage.Axes)
+            {
+                v = (int)BindingsPage.ButtonsVehicle;
+            }
+            return (BindingsPage)v;
+        }
+
+        private static string GetBindingsPageTitle(BindingsPage p)
+        {
+            switch (p)
+            {
+                case BindingsPage.Axes:
+                    return "Axis Mapping";
+                case BindingsPage.ButtonsMain:
+                    return "Buttons";
+                case BindingsPage.ButtonsVehicle:
+                    return "Vehicle";
+                default:
+                    return "Buttons";
+            }
+        }
+
+        private void DrawBindingsAxes(Rect p, float center, ref float y, float line, float sectionGap)
+        {
+            if (!Plugin.TryGetCachedWheelState(out var state))
             {
                 _util.Label("Wheel not detected (Logitech SDK not ready).", p.x + p.width / 2f, y);
                 return;
@@ -293,26 +414,26 @@ namespace EasyLogiWheelSupport
             Plugin.AxisId brakeAxis = Plugin.GetBrakeAxis();
             Plugin.AxisId clutchAxis = Plugin.GetClutchAxis();
 
-            if (_util.CycleButton("Steering Axis", steerAxis.ToString(), center, y))
+            if (_util.CycleButton("Steering", steerAxis.ToString(), center, y))
             {
                 Plugin.SetSteeringAxis(NextAxis(steerAxis));
                 _calStep = CalStep.None;
             }
             y += line;
-            if (_util.CycleButton("Throttle Axis", throttleAxis.ToString(), center, y))
+            if (_util.CycleButton("Throttle", throttleAxis.ToString(), center, y))
             {
                 Plugin.SetThrottleAxis(NextAxis(throttleAxis));
                 _calStep = CalStep.None;
             }
             y += line;
-            if (_util.CycleButton("Brake Axis", brakeAxis.ToString(), center, y))
+            if (_util.CycleButton("Brake", brakeAxis.ToString(), center, y))
             {
                 Plugin.SetBrakeAxis(NextAxis(brakeAxis));
                 _calStep = CalStep.None;
             }
 
             y += line;
-            if (_util.CycleButton("Clutch Axis", clutchAxis.ToString(), center, y))
+            if (_util.CycleButton("Clutch", clutchAxis.ToString(), center, y))
             {
                 Plugin.SetClutchAxis(NextAxis(clutchAxis));
                 _calStep = CalStep.None;
@@ -323,13 +444,280 @@ namespace EasyLogiWheelSupport
             int rawThr = Plugin.GetAxisValue(state, Plugin.GetThrottleAxis());
             int rawBrk = Plugin.GetAxisValue(state, Plugin.GetBrakeAxis());
             int rawClu = Plugin.GetAxisValue(state, Plugin.GetClutchAxis());
-            _util.Label($"steer={rawSteer}", p.x + p.width / 2f, y);
+            _util.Label($"steer={rawSteer}  thr={rawThr}", p.x + p.width / 2f, y);
             y += line - 2f;
-            _util.Label($"thr={rawThr}", p.x + p.width / 2f, y);
-            y += line - 2f;
-            _util.Label($"brk={rawBrk}", p.x + p.width / 2f, y);
-            y += line - 2f;
-            _util.Label($"clu={rawClu}", p.x + p.width / 2f, y);
+            _util.Label($"brk={rawBrk}  clu={rawClu}", p.x + p.width / 2f, y);
+        }
+
+        private void DrawBindingsButtonsPage(Rect p, float center, ref float y, float line, bool mainPage)
+        {
+            float cx = p.x + p.width / 2f;
+
+            if (_util.CycleButtonRaw("Modifier", Plugin.GetBindingLabel(Plugin.GetModifierBinding()), center, y))
+            {
+                _bindingCaptureModifier = true;
+                _page = Page.BindingCapture;
+                Plugin.LogDebug("Bindings: start capture for modifier");
+                return;
+            }
+            y += line;
+
+            Plugin.ButtonBindAction[] actions = mainPage
+                ? new[]
+                {
+                    Plugin.ButtonBindAction.InteractOk,
+                    Plugin.ButtonBindAction.Back,
+                    Plugin.ButtonBindAction.MapItems,
+                    Plugin.ButtonBindAction.Pause,
+                    Plugin.ButtonBindAction.JobSelection,
+                    Plugin.ButtonBindAction.Camera,
+                    Plugin.ButtonBindAction.ResetVehicle,
+                    Plugin.ButtonBindAction.Headlights
+                }
+                : new[]
+                {
+                    Plugin.ButtonBindAction.Horn,
+                    Plugin.ButtonBindAction.RadioPower,
+                    Plugin.ButtonBindAction.RadioScanRight,
+                    Plugin.ButtonBindAction.RadioScanLeft,
+                    Plugin.ButtonBindAction.RadioScanToggle
+                };
+
+            int maxVisible = 8;
+            for (int i = 0; i < actions.Length && i < maxVisible; i++)
+            {
+                var action = actions[i];
+                string value = GetSingleBindingDisplay(action);
+                string label = Plugin.GetActionLabel(action);
+                if (_util.CycleButtonRaw(label, value, center, y))
+                {
+                    _bindingCaptureModifier = false;
+                    _bindingCaptureAction = action;
+                    _bindingDupConfirmActive = false;
+                    _page = Page.BindingCapture;
+                    Plugin.LogDebug("Bindings: start capture for " + action);
+                    return;
+                }
+                y += line;
+            }
+        }
+
+        private static string GetSingleBindingDisplay(Plugin.ButtonBindAction action)
+        {
+            var mod = Plugin.GetBinding(Plugin.BindingLayer.Modified, action);
+            if (mod.Kind != Plugin.BindingKind.None)
+            {
+                return Plugin.GetChordLabel(mod, modified: true);
+            }
+
+            var normal = Plugin.GetBinding(Plugin.BindingLayer.Normal, action);
+            return Plugin.GetChordLabel(normal, modified: false);
+        }
+
+        private void ApplyPendingBinding(bool replaceDuplicates)
+        {
+            if (!_bindingDupConfirmActive)
+            {
+                return;
+            }
+
+            if (replaceDuplicates && _bindingDupConflicts != null)
+            {
+                foreach (var c in _bindingDupConflicts)
+                {
+                    Plugin.SetBinding(c.Layer, c.Action, new Plugin.BindingInput { Kind = Plugin.BindingKind.None, Code = 0 });
+                }
+                Plugin.LogDebug("Bindings: removed duplicate bindings");
+            }
+
+            ApplyBindingNow(_bindingDupPendingCaptured, _bindingDupPendingLayer);
+
+            _bindingDupConfirmActive = false;
+            _bindingCaptureModifier = false;
+            _page = Page.Bindings;
+        }
+
+        private void ApplyBindingNow(Plugin.BindingInput captured, Plugin.BindingLayer targetLayer)
+        {
+            // One binding per action: set target layer and clear the other.
+            Plugin.SetBinding(targetLayer, _bindingCaptureAction, captured);
+            Plugin.SetBinding(targetLayer == Plugin.BindingLayer.Normal ? Plugin.BindingLayer.Modified : Plugin.BindingLayer.Normal, _bindingCaptureAction,
+                new Plugin.BindingInput { Kind = Plugin.BindingKind.None, Code = 0 });
+
+            Plugin.LogDebug("Bindings: set " + _bindingCaptureAction + " -> " + Plugin.GetChordLabel(captured, targetLayer == Plugin.BindingLayer.Modified));
+        }
+
+        private static bool SameBinding(Plugin.BindingInput a, Plugin.BindingInput b)
+        {
+            return a.Kind == b.Kind && a.Code == b.Code;
+        }
+
+        private static bool TryFindDuplicateBindings(Plugin.BindingInput captured, Plugin.ButtonBindAction targetAction, Plugin.BindingLayer targetLayer,
+            out List<BindingConflict> conflicts)
+        {
+            conflicts = null;
+
+            foreach (var action in AllBindableActions)
+            {
+                foreach (Plugin.BindingLayer layer in new[] { Plugin.BindingLayer.Normal, Plugin.BindingLayer.Modified })
+                {
+                    if (action == targetAction && layer == targetLayer)
+                    {
+                        continue;
+                    }
+
+                    var existing = Plugin.GetBinding(layer, action);
+                    if (existing.Kind == Plugin.BindingKind.None)
+                    {
+                        continue;
+                    }
+
+                    if (SameBinding(existing, captured))
+                    {
+                        conflicts ??= new List<BindingConflict>();
+                        conflicts.Add(new BindingConflict { Layer = layer, Action = action });
+                    }
+                }
+            }
+
+            return conflicts != null && conflicts.Count > 0;
+        }
+
+        private static string GetDupConflictsText(List<BindingConflict> conflicts)
+        {
+            if (conflicts == null || conflicts.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            // Keep it short; only show the first conflict.
+            var c = conflicts[0];
+            string prefix = c.Layer == Plugin.BindingLayer.Modified ? "M+" : string.Empty;
+            return prefix + Plugin.GetActionLabel(c.Action);
+        }
+
+        private void DrawBindingCapture(Rect p, float center, ref float y, float line, float sectionGap)
+        {
+            _util.Label("Bindings", p.x + p.width / 2f, y);
+            y += line;
+
+            string secondLine;
+            if (_bindingCaptureModifier)
+            {
+                secondLine = "Modifier (hold)";
+            }
+            else
+            {
+                secondLine = Plugin.GetActionLabel(_bindingCaptureAction);
+            }
+
+            float promptY = p.y + p.height / 2f - 18f;
+            _util.Label("Press a wheel button for:", p.x + p.width / 2f, promptY);
+            _util.Label(secondLine, p.x + p.width / 2f, promptY + line);
+
+            bool modDown = false;
+            var modifier = Plugin.GetModifierBinding();
+            if (!_bindingCaptureModifier && modifier.Kind != Plugin.BindingKind.None)
+            {
+                modDown = Plugin.IsBindingDownForCurrentFrame(modifier);
+                _util.Label("Hold Modifier to bind M+", p.x + p.width / 2f, promptY + line * 2f);
+                _util.Label(modDown ? "Mode: M+" : "Mode: Normal", p.x + p.width / 2f, promptY + line * 3f);
+            }
+
+            float cx = p.x + p.width / 2f;
+            float clearY = p.y + p.height - 30f;
+            float cancelY = p.y + p.height - 18f;
+
+            if (_bindingDupConfirmActive)
+            {
+                _util.Label("Already used by:", p.x + p.width / 2f, promptY + line * 4f);
+                _util.Label(GetDupConflictsText(_bindingDupConflicts), p.x + p.width / 2f, promptY + line * 5f);
+
+                if (_util.SimpleButton("Replace", cx, clearY))
+                {
+                    ApplyPendingBinding(replaceDuplicates: true);
+                    return;
+                }
+
+                if (_util.SimpleButton("Cancel", cx, cancelY))
+                {
+                    Plugin.LogDebug("Bindings: duplicate warning cancelled");
+                    _bindingDupConfirmActive = false;
+                    return;
+                }
+
+                return;
+            }
+
+            if (_util.SimpleButton("Clear", cx, clearY))
+            {
+                if (_bindingCaptureModifier)
+                {
+                    Plugin.SetModifierBinding(new Plugin.BindingInput { Kind = Plugin.BindingKind.None, Code = 0 });
+                    Plugin.LogDebug("Bindings: cleared modifier");
+                }
+                else
+                {
+                    // This mod only supports one binding per action; clear both layers.
+                    Plugin.SetBinding(Plugin.BindingLayer.Normal, _bindingCaptureAction, new Plugin.BindingInput { Kind = Plugin.BindingKind.None, Code = 0 });
+                    Plugin.SetBinding(Plugin.BindingLayer.Modified, _bindingCaptureAction, new Plugin.BindingInput { Kind = Plugin.BindingKind.None, Code = 0 });
+                    Plugin.LogDebug("Bindings: cleared " + _bindingCaptureAction);
+                }
+
+                _bindingCaptureModifier = false;
+                _bindingDupConfirmActive = false;
+                _page = Page.Bindings;
+                return;
+            }
+
+            if (_util.SimpleButton("Cancel", cx, cancelY))
+            {
+                Plugin.LogDebug("Bindings: capture cancelled");
+                _bindingCaptureModifier = false;
+                _bindingDupConfirmActive = false;
+                _page = Page.Bindings;
+                return;
+            }
+
+            if (!Plugin.TryCaptureNextBinding(out var captured))
+            {
+                return;
+            }
+
+            if (_bindingCaptureModifier)
+            {
+                Plugin.SetModifierBinding(captured);
+                Plugin.LogDebug("Bindings: set modifier -> " + Plugin.GetBindingLabel(captured));
+
+                _bindingCaptureModifier = false;
+                _bindingDupConfirmActive = false;
+                _page = Page.Bindings;
+                return;
+            }
+
+            var targetLayer = modDown ? Plugin.BindingLayer.Modified : Plugin.BindingLayer.Normal;
+
+            // Avoid binding M+<modifier> to an action.
+            if (targetLayer == Plugin.BindingLayer.Modified && modifier.Kind != Plugin.BindingKind.None && modifier.Kind == captured.Kind && modifier.Code == captured.Code)
+            {
+                return;
+            }
+
+            if (TryFindDuplicateBindings(captured, _bindingCaptureAction, targetLayer, out var conflicts))
+            {
+                _bindingDupConfirmActive = true;
+                _bindingDupPendingCaptured = captured;
+                _bindingDupPendingLayer = targetLayer;
+                _bindingDupConflicts = conflicts;
+                Plugin.LogDebug("Bindings: duplicate binding warning for " + Plugin.GetBindingLabel(captured));
+                return;
+            }
+
+            ApplyBindingNow(captured, targetLayer);
+
+            _bindingCaptureModifier = false;
+            _bindingDupConfirmActive = false;
+            _page = Page.Bindings;
         }
 
         private void DrawCalibration(Rect p, float center, ref float y, float line, float sectionGap)
@@ -495,6 +883,10 @@ namespace EasyLogiWheelSupport
                     return "Release brake";
                 case CalStep.BrakePressed:
                     return "Press brake fully";
+                case CalStep.ClutchReleased:
+                    return "Release clutch";
+                case CalStep.ClutchPressed:
+                    return "Press clutch fully";
                 default:
                     return "";
             }
@@ -517,6 +909,10 @@ namespace EasyLogiWheelSupport
                 case CalStep.BrakeReleased:
                     return CalStep.BrakePressed;
                 case CalStep.BrakePressed:
+                    return CalStep.ClutchReleased;
+                case CalStep.ClutchReleased:
+                    return CalStep.ClutchPressed;
+                case CalStep.ClutchPressed:
                     return CalStep.None;
                 default:
                     return CalStep.None;
@@ -547,6 +943,12 @@ namespace EasyLogiWheelSupport
                     break;
                 case CalStep.BrakePressed:
                     PlayerPrefs.SetInt(Plugin.PrefKeyCalBrakePressed, Plugin.GetAxisValue(state, Plugin.GetBrakeAxis()));
+                    break;
+                case CalStep.ClutchReleased:
+                    PlayerPrefs.SetInt(Plugin.PrefKeyCalClutchReleased, Plugin.GetAxisValue(state, Plugin.GetClutchAxis()));
+                    break;
+                case CalStep.ClutchPressed:
+                    PlayerPrefs.SetInt(Plugin.PrefKeyCalClutchPressed, Plugin.GetAxisValue(state, Plugin.GetClutchAxis()));
                     break;
             }
         }

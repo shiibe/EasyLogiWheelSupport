@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using BepInEx.Configuration;
 using HarmonyLib;
 using UnityEngine;
@@ -9,6 +10,8 @@ namespace EasyLogiWheelSupport
     {
         private void Awake()
         {
+            TryMigrateConfigFile();
+
             _log = Logger;
 
             _enableMod = Config.Bind("General", "enable_mod", true, "Enables/disables the mod entirely.");
@@ -30,12 +33,43 @@ namespace EasyLogiWheelSupport
             var harmony = new Harmony(PluginGuid);
 
             PatchByName(harmony, "DesktopDotExe", "Setup", postfix: nameof(DesktopDotExe_Setup_Postfix));
+            PatchByName(harmony, "DesktopDotExe", "Draw", postfix: nameof(DesktopDotExe_Draw_Postfix));
             PatchByName(harmony, "sCarController", "Update", prefix: nameof(SCarController_Update_Prefix));
             PatchByName(harmony, "sInputManager", "GetInput", postfix: nameof(SInputManager_GetInput_Postfix));
 
             DetectWheelOnce();
             TryInitLogitech();
             _log.LogInfo("EasyLogiWheelSupport loaded.");
+        }
+
+        private void TryMigrateConfigFile()
+        {
+            try
+            {
+                string newPath = Config?.ConfigFilePath;
+                if (string.IsNullOrWhiteSpace(newPath))
+                {
+                    return;
+                }
+
+                string dir = Path.GetDirectoryName(newPath);
+                if (string.IsNullOrWhiteSpace(dir))
+                {
+                    return;
+                }
+
+                string oldPath = Path.Combine(dir, "shibe.easydeliveryco.g920.cfg");
+                if (File.Exists(oldPath) && !File.Exists(newPath))
+                {
+                    Directory.CreateDirectory(dir);
+                    File.Copy(oldPath, newPath);
+                    Logger.LogInfo($"Migrated config: {Path.GetFileName(oldPath)} -> {Path.GetFileName(newPath)}");
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning($"Config migration failed: {e.GetType().Name}: {e.Message}");
+            }
         }
 
         private void Update()
@@ -55,6 +89,9 @@ namespace EasyLogiWheelSupport
                 return;
             }
 
+            // Allow wheel buttons to navigate menus even while paused/locked.
+            InjectWheelButtonBindings(__instance);
+
             // Don't inject wheel input while the game is explicitly locking input (menus/cutscenes/buildings).
             if (__instance.lockInput || PauseSystem.paused)
             {
@@ -66,7 +103,7 @@ namespace EasyLogiWheelSupport
                 return;
             }
 
-            if (!TryGetLogiState(out var state))
+            if (!TryGetCachedWheelState(out var state))
             {
                 return;
             }
@@ -84,6 +121,314 @@ namespace EasyLogiWheelSupport
             __instance.breakPressed = brake > 0.1f;
 
             SetWheelLastInput(steering, accel);
+        }
+
+        private static void InjectWheelButtonBindings(sInputManager input)
+        {
+            if (input == null)
+            {
+                return;
+            }
+
+            // Pull a fresh cache frame so Pressed/Released works reliably.
+            if (!TryGetCachedWheelState(out _))
+            {
+                return;
+            }
+
+            var modifier = GetModifierBinding();
+            bool modifierDown = modifier.Kind != BindingKind.None && IsBindingDownForCurrentFrame(modifier);
+            BindingLayer layer = modifierDown ? BindingLayer.Modified : BindingLayer.Normal;
+
+            // Don't trigger gameplay/program actions while the wheel menu is open.
+            // (Prevents e.g. Jobs from opening while on the bindings screen.)
+            if (IsWheelMenuActive())
+            {
+                return;
+            }
+
+            bool allowPovBinds = !_isInWalkingMode && !PauseSystem.paused && !input.lockInput;
+
+            bool Pressed(BindingInput b)
+            {
+                if (b.Kind == BindingKind.Pov && !allowPovBinds)
+                {
+                    return false;
+                }
+                return IsBindingPressedThisFrameForCurrentFrame(b);
+            }
+
+            bool Released(BindingInput b)
+            {
+                if (b.Kind == BindingKind.Pov && !allowPovBinds)
+                {
+                    return false;
+                }
+                return IsBindingReleasedThisFrameForCurrentFrame(b);
+            }
+
+            bool Down(BindingInput b)
+            {
+                if (b.Kind == BindingKind.Pov && !allowPovBinds)
+                {
+                    return false;
+                }
+                return IsBindingDownForCurrentFrame(b);
+            }
+
+            // POV -> menu cursor (fake mouse) while paused.
+            // Disable this while the bindings capture screen is open so the user can bind D-pad directions.
+            if (PauseSystem.paused && !IsBindingCaptureActive())
+            {
+                if (TryGetPovDir(out int povDir))
+                {
+                    Vector2 mouse = Vector2.zero;
+                    switch (povDir)
+                    {
+                        case 0:
+                            mouse.y = 1f;
+                            break;
+                        case 1:
+                            mouse.x = 1f;
+                            break;
+                        case 2:
+                            mouse.y = -1f;
+                            break;
+                        case 3:
+                            mouse.x = -1f;
+                            break;
+                    }
+                    if (mouse != Vector2.zero)
+                    {
+                        input.mouseInput = mouse;
+                    }
+                }
+            }
+
+            // POV -> walking movement.
+            if (_isInWalkingMode && !PauseSystem.paused && !input.lockInput)
+            {
+                if (TryGetPov8Vector(out var pov))
+                {
+                    // Invert so D-pad direction matches on-screen movement.
+                    Vector2 move = -pov;
+                    if (move != Vector2.zero)
+                    {
+                        input.playerInput = move;
+                    }
+                }
+            }
+
+            // Click/Select (Interact/OK)
+            {
+                var bind = GetBinding(layer, ButtonBindAction.InteractOk);
+                if (bind.Kind != BindingKind.None)
+                {
+                    if (Pressed(bind))
+                    {
+                        input.selectPressed = true;
+                    }
+                    if (Released(bind))
+                    {
+                        input.selectReleased = true;
+                    }
+                }
+            }
+
+            // Back
+            {
+                var bind = GetBinding(layer, ButtonBindAction.Back);
+                if (bind.Kind != BindingKind.None)
+                {
+                    if (Pressed(bind))
+                    {
+                        input.backPressed = true;
+                    }
+                    if (Released(bind))
+                    {
+                        input.backReleased = true;
+                    }
+                }
+            }
+
+            // Pause
+            {
+                var bind = GetBinding(layer, ButtonBindAction.Pause);
+                if (bind.Kind != BindingKind.None && Pressed(bind))
+                {
+                    input.pausePressed = true;
+                }
+            }
+
+            // Map/Items
+            {
+                var bind = GetBinding(layer, ButtonBindAction.MapItems);
+                if (bind.Kind != BindingKind.None)
+                {
+                    if (Pressed(bind))
+                    {
+                        input.mapPressed = true;
+                        input.inventoryPressed = true;
+                    }
+                    if (Released(bind))
+                    {
+                        input.inventoryReleased = true;
+                    }
+                    if (Down(bind))
+                    {
+                        input.inventoryHeld = true;
+                    }
+                }
+            }
+
+            // Camera change
+            {
+                var bind = GetBinding(layer, ButtonBindAction.Camera);
+                if (bind.Kind != BindingKind.None && Pressed(bind))
+                {
+                    input.cameraPressed = true;
+                }
+            }
+
+            // Reset vehicle
+            {
+                var bind = GetBinding(layer, ButtonBindAction.ResetVehicle);
+                if (bind.Kind != BindingKind.None)
+                {
+                    if (Pressed(bind))
+                    {
+                        input.resetPressed = true;
+                    }
+                    // Some game code reads resetHeld (oddly assigned with WasPerformedThisFrame). Treat as pressed.
+                    if (Down(bind))
+                    {
+                        input.resetHeld = true;
+                    }
+                }
+            }
+
+            // Headlights
+            {
+                var bind = GetBinding(layer, ButtonBindAction.Headlights);
+                if (bind.Kind != BindingKind.None && Pressed(bind))
+                {
+                    input.headlightsPressed = true;
+                }
+            }
+
+            // Job selection (open jobs on Desktop)
+            {
+                var bind = GetBinding(layer, ButtonBindAction.JobSelection);
+                if (bind.Kind != BindingKind.None && Pressed(bind))
+                {
+                    // The game's jobs program lives inside the pause/desktop UI.
+                    // If we're not already paused, request pause so the program becomes visible immediately.
+                    if (!PauseSystem.paused)
+                    {
+                        input.pausePressed = true;
+                    }
+                    RequestOpenJobs();
+                }
+            }
+
+            // Horn
+            {
+                var bind = GetBinding(layer, ButtonBindAction.Horn);
+                if (bind.Kind != BindingKind.None && Pressed(bind))
+                {
+                    input.hornPressed = true;
+                }
+            }
+
+            // Radio: emulate the game's Radio action (radioPressed + radioInput).
+            // Only while driving; D-pad is reserved for walking movement.
+            if (!_isInWalkingMode && !PauseSystem.paused && !input.lockInput)
+            {
+                Vector2 radio = Vector2.zero;
+                bool radioPressed = false;
+
+                // Down: Radio on/off
+                {
+                    var bind = GetBinding(layer, ButtonBindAction.RadioPower);
+                    if (bind.Kind != BindingKind.None && Pressed(bind))
+                    {
+                        radio.y = -1f;
+                        radioPressed = true;
+                    }
+                }
+
+                // Right: Scan
+                {
+                    var bind = GetBinding(layer, ButtonBindAction.RadioScanRight);
+                    if (bind.Kind != BindingKind.None && Pressed(bind))
+                    {
+                        radio.x = 1f;
+                        radioPressed = true;
+                    }
+                }
+
+                // Left: Channels
+                {
+                    var bind = GetBinding(layer, ButtonBindAction.RadioScanLeft);
+                    if (bind.Kind != BindingKind.None && Pressed(bind))
+                    {
+                        radio.x = -1f;
+                        radioPressed = true;
+                    }
+                }
+
+                // Up: Scan toggle (optional)
+                {
+                    var bind = GetBinding(layer, ButtonBindAction.RadioScanToggle);
+                    if (bind.Kind != BindingKind.None && Pressed(bind))
+                    {
+                        radio.y = 1f;
+                        radioPressed = true;
+                    }
+                }
+
+                if (radioPressed)
+                {
+                    input.radioPressed = true;
+                    input.radioInput = radio;
+                }
+            }
+        }
+
+        private static void DesktopDotExe_Draw_Postfix(object __instance)
+        {
+            if (!ShouldApply() || __instance == null)
+            {
+                return;
+            }
+
+            if (IsWheelMenuActive())
+            {
+                return;
+            }
+
+            // Only open jobs from the in-game pause/desktop UI.
+            if (!PauseSystem.paused)
+            {
+                return;
+            }
+
+            if (!ConsumeOpenJobsRequested())
+            {
+                return;
+            }
+
+            try
+            {
+                if (__instance is DesktopDotExe desktop)
+                {
+                    LogDebug("Bindings: opening jobs");
+                    desktop.OpenFile("jobs");
+                }
+            }
+            catch
+            {
+            }
         }
 
         #pragma warning disable IDE1006

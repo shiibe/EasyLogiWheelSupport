@@ -64,6 +64,503 @@ namespace EasyLogiWheelSupport
         internal const string PrefKeyBrakeAxis = "G920Axis_Brake";
         internal const string PrefKeyClutchAxis = "G920Axis_Clutch";
 
+        internal enum ButtonBindAction
+        {
+            InteractOk = 0,
+            Back = 1,
+            MapItems = 2,
+            Pause = 3,
+            JobSelection = 4,
+            Camera = 5,
+            ResetVehicle = 6,
+            Headlights = 7,
+
+            Horn = 8,
+
+            RadioPower = 9,
+            RadioScanToggle = 10,
+            RadioScanLeft = 11,
+            RadioScanRight = 12
+        }
+
+        internal enum BindingLayer
+        {
+            Normal = 0,
+            Modified = 1
+        }
+
+        internal enum BindingKind
+        {
+            None = 0,
+            Button = 1,
+            Pov = 2
+        }
+
+        internal struct BindingInput
+        {
+            public BindingKind Kind;
+            public int Code;
+        }
+
+        private const int BindingPovOffset = 1000;
+        private const string PrefKeyBindModifier = "G920Bind_Modifier";
+
+        private static string GetBindPrefKey(BindingLayer layer, ButtonBindAction action)
+        {
+            // Stable key: do not depend on enum ToString().
+            return "G920Bind_" + (int)layer + "_" + (int)action;
+        }
+
+        private static string GetLegacyBindPrefKey(BindingLayer layer, ButtonBindAction action)
+        {
+            // v0.1 pre-release used enum names.
+            return "G920Bind_" + layer + "_" + action;
+        }
+
+        internal static BindingInput GetBinding(BindingLayer layer, ButtonBindAction action)
+        {
+            string key = GetBindPrefKey(layer, action);
+            int raw = PlayerPrefs.GetInt(key, -1);
+            if (raw < 0)
+            {
+                // Back-compat with earlier key format.
+                raw = PlayerPrefs.GetInt(GetLegacyBindPrefKey(layer, action), -1);
+            }
+            if (raw < 0)
+            {
+                return new BindingInput { Kind = BindingKind.None, Code = 0 };
+            }
+            if (raw >= BindingPovOffset)
+            {
+                return new BindingInput { Kind = BindingKind.Pov, Code = Mathf.Clamp(raw - BindingPovOffset, 0, 3) };
+            }
+            return new BindingInput { Kind = BindingKind.Button, Code = Mathf.Clamp(raw, 0, 127) };
+        }
+
+        internal static void SetBinding(BindingLayer layer, ButtonBindAction action, BindingInput input)
+        {
+            int raw;
+            if (input.Kind == BindingKind.Button)
+            {
+                raw = Mathf.Clamp(input.Code, 0, 127);
+            }
+            else if (input.Kind == BindingKind.Pov)
+            {
+                raw = BindingPovOffset + Mathf.Clamp(input.Code, 0, 3);
+            }
+            else
+            {
+                raw = -1;
+            }
+
+            PlayerPrefs.SetInt(GetBindPrefKey(layer, action), raw);
+        }
+
+        internal static bool TryGetPovDir(out int dir)
+        {
+            dir = -1;
+            if (!TryGetCachedWheelState(out var state))
+            {
+                return false;
+            }
+
+            uint pov = 0xFFFFFFFF;
+            if (state.rgdwPOV != null && state.rgdwPOV.Length > 0)
+            {
+                pov = state.rgdwPOV[0];
+            }
+            dir = PovToDir(pov);
+            return true;
+        }
+
+        internal static bool TryGetPov8Vector(out Vector2 v)
+        {
+            v = Vector2.zero;
+            if (!TryGetCachedWheelState(out var state))
+            {
+                return false;
+            }
+
+            uint pov = 0xFFFFFFFF;
+            if (state.rgdwPOV != null && state.rgdwPOV.Length > 0)
+            {
+                pov = state.rgdwPOV[0];
+            }
+
+            if (pov == 0xFFFFFFFF)
+            {
+                return true;
+            }
+
+            int angle = (int)(pov % 36000u);
+            int dir8 = Mathf.RoundToInt(angle / 4500f) % 8;
+
+            // POV convention: 0=Up, 90=Right, 180=Down, 270=Left.
+            // Match the prior 4-dir mapping (up => y=-1) then invert in caller if needed.
+            switch (dir8)
+            {
+                case 0:
+                    v = new Vector2(0f, -1f);
+                    break;
+                case 1:
+                    v = new Vector2(-1f, -1f);
+                    break;
+                case 2:
+                    v = new Vector2(-1f, 0f);
+                    break;
+                case 3:
+                    v = new Vector2(-1f, 1f);
+                    break;
+                case 4:
+                    v = new Vector2(0f, 1f);
+                    break;
+                case 5:
+                    v = new Vector2(1f, 1f);
+                    break;
+                case 6:
+                    v = new Vector2(1f, 0f);
+                    break;
+                default:
+                    v = new Vector2(1f, -1f);
+                    break;
+            }
+
+            return true;
+        }
+
+        private static bool _openJobsRequested;
+
+        internal static void RequestOpenJobs()
+        {
+            _openJobsRequested = true;
+        }
+
+        internal static bool ConsumeOpenJobsRequested()
+        {
+            if (!_openJobsRequested)
+            {
+                return false;
+            }
+            _openJobsRequested = false;
+            return true;
+        }
+
+        internal static BindingInput GetModifierBinding()
+        {
+            int raw = PlayerPrefs.GetInt(PrefKeyBindModifier, -1);
+            if (raw < 0)
+            {
+                return new BindingInput { Kind = BindingKind.None, Code = 0 };
+            }
+            if (raw >= BindingPovOffset)
+            {
+                return new BindingInput { Kind = BindingKind.Pov, Code = Mathf.Clamp(raw - BindingPovOffset, 0, 3) };
+            }
+            return new BindingInput { Kind = BindingKind.Button, Code = Mathf.Clamp(raw, 0, 127) };
+        }
+
+        internal static void SetModifierBinding(BindingInput input)
+        {
+            int raw;
+            if (input.Kind == BindingKind.Button)
+            {
+                raw = Mathf.Clamp(input.Code, 0, 127);
+            }
+            else if (input.Kind == BindingKind.Pov)
+            {
+                raw = BindingPovOffset + Mathf.Clamp(input.Code, 0, 3);
+            }
+            else
+            {
+                raw = -1;
+            }
+
+            PlayerPrefs.SetInt(PrefKeyBindModifier, raw);
+        }
+
+        internal static string GetBindingLabel(BindingInput input)
+        {
+            if (input.Kind == BindingKind.Button)
+            {
+                return "But. " + (Mathf.Clamp(input.Code, 0, 127) + 1);
+            }
+            if (input.Kind == BindingKind.Pov)
+            {
+                switch (Mathf.Clamp(input.Code, 0, 3))
+                {
+                    case 0:
+                        return "DP Up";
+                    case 1:
+                        return "DP Right";
+                    case 2:
+                        return "DP Down";
+                    default:
+                        return "DP Left";
+                }
+            }
+            return "None";
+        }
+
+        internal static string GetChordLabel(BindingInput input, bool modified)
+        {
+            string baseLabel = GetBindingLabel(input);
+            if (!modified || input.Kind == BindingKind.None)
+            {
+                return baseLabel;
+            }
+            return "M+" + baseLabel;
+        }
+
+        internal static string GetActionLabel(ButtonBindAction action)
+        {
+            switch (action)
+            {
+                case ButtonBindAction.InteractOk:
+                    return "Interact";
+                case ButtonBindAction.Back:
+                    return "Back";
+                case ButtonBindAction.MapItems:
+                    return "Map/Items";
+                case ButtonBindAction.Pause:
+                    return "Pause";
+                case ButtonBindAction.JobSelection:
+                    return "Jobs";
+                case ButtonBindAction.Camera:
+                    return "Camera";
+                case ButtonBindAction.ResetVehicle:
+                    return "Reset";
+                case ButtonBindAction.Headlights:
+                    return "Lights";
+                case ButtonBindAction.Horn:
+                    return "Horn";
+                case ButtonBindAction.RadioPower:
+                    return "Radio Pwr";
+                case ButtonBindAction.RadioScanToggle:
+                    return "Scan Tog";
+                case ButtonBindAction.RadioScanLeft:
+                    return "Channels";
+                case ButtonBindAction.RadioScanRight:
+                    return "Scan";
+                default:
+                    return action.ToString();
+            }
+        }
+
+        private static int _wheelInputCacheFrame = -1;
+        private static bool _wheelInputCacheValid;
+        private static LogitechGSDK.DIJOYSTATE2ENGINES _wheelInputCacheState;
+        private static bool[] _wheelButtonsDown;
+        private static bool[] _wheelButtonsPressed;
+        private static bool[] _wheelButtonsReleased;
+        private static bool[] _wheelPovDown;
+        private static bool[] _wheelPovPressed;
+        private static bool[] _wheelPovReleased;
+        private static int _wheelPovDirDown = -1;
+
+        private static void EnsureWheelInputArrays()
+        {
+            _wheelButtonsDown ??= new bool[128];
+            _wheelButtonsPressed ??= new bool[128];
+            _wheelButtonsReleased ??= new bool[128];
+            _wheelPovDown ??= new bool[4];
+            _wheelPovPressed ??= new bool[4];
+            _wheelPovReleased ??= new bool[4];
+        }
+
+        private static int PovToDir(uint pov)
+        {
+            // 0xFFFFFFFF means centered.
+            if (pov == 0xFFFFFFFF)
+            {
+                return -1;
+            }
+
+            // POV uses hundredths of degrees (0..35999). Snap to nearest cardinal.
+            int angle = (int)(pov % 36000u);
+            int dir = ((angle + 4500) / 9000) % 4;
+            // 0=Up, 1=Right, 2=Down, 3=Left
+            return dir;
+        }
+
+        private static void UpdateWheelInputCache()
+        {
+            EnsureWheelInputArrays();
+
+            int frame = Time.frameCount;
+            if (frame == _wheelInputCacheFrame)
+            {
+                return;
+            }
+            _wheelInputCacheFrame = frame;
+
+            Array.Clear(_wheelButtonsPressed, 0, _wheelButtonsPressed.Length);
+            Array.Clear(_wheelButtonsReleased, 0, _wheelButtonsReleased.Length);
+            Array.Clear(_wheelPovPressed, 0, _wheelPovPressed.Length);
+            Array.Clear(_wheelPovReleased, 0, _wheelPovReleased.Length);
+
+            _wheelInputCacheValid = TryGetLogiState(out var state);
+            if (!_wheelInputCacheValid)
+            {
+                return;
+            }
+
+            _wheelInputCacheState = state;
+
+            if (state.rgbButtons != null)
+            {
+                int count = Math.Min(state.rgbButtons.Length, _wheelButtonsDown.Length);
+                for (int i = 0; i < count; i++)
+                {
+                    bool downNow = state.rgbButtons[i] >= 128;
+                    if (downNow && !_wheelButtonsDown[i])
+                    {
+                        _wheelButtonsPressed[i] = true;
+                    }
+                    else if (!downNow && _wheelButtonsDown[i])
+                    {
+                        _wheelButtonsReleased[i] = true;
+                    }
+                    _wheelButtonsDown[i] = downNow;
+                }
+            }
+
+            int povDir = -1;
+            if (state.rgdwPOV != null && state.rgdwPOV.Length > 0)
+            {
+                povDir = PovToDir(state.rgdwPOV[0]);
+            }
+
+            if (povDir != _wheelPovDirDown)
+            {
+                if (_wheelPovDirDown >= 0)
+                {
+                    _wheelPovReleased[_wheelPovDirDown] = true;
+                }
+                if (povDir >= 0)
+                {
+                    _wheelPovPressed[povDir] = true;
+                }
+            }
+
+            _wheelPovDirDown = povDir;
+            for (int i = 0; i < 4; i++)
+            {
+                _wheelPovDown[i] = (povDir == i);
+            }
+        }
+
+        internal static bool TryGetCachedWheelState(out LogitechGSDK.DIJOYSTATE2ENGINES state)
+        {
+            UpdateWheelInputCache();
+            state = _wheelInputCacheState;
+            return _wheelInputCacheValid;
+        }
+
+        internal static bool TryCaptureNextBinding(out BindingInput input)
+        {
+            input = default;
+            UpdateWheelInputCache();
+            if (!_wheelInputCacheValid)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < _wheelButtonsPressed.Length; i++)
+            {
+                if (_wheelButtonsPressed[i])
+                {
+                    input = new BindingInput { Kind = BindingKind.Button, Code = i };
+                    return true;
+                }
+            }
+
+            for (int d = 0; d < _wheelPovPressed.Length; d++)
+            {
+                if (_wheelPovPressed[d])
+                {
+                    input = new BindingInput { Kind = BindingKind.Pov, Code = d };
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool IsBindingDownForCurrentFrame(BindingInput input)
+        {
+            UpdateWheelInputCache();
+            if (!_wheelInputCacheValid)
+            {
+                return false;
+            }
+            return IsBindingDown(input);
+        }
+
+        internal static bool IsBindingPressedThisFrameForCurrentFrame(BindingInput input)
+        {
+            UpdateWheelInputCache();
+            if (!_wheelInputCacheValid)
+            {
+                return false;
+            }
+            return IsBindingPressedThisFrame(input);
+        }
+
+        internal static bool IsBindingReleasedThisFrameForCurrentFrame(BindingInput input)
+        {
+            UpdateWheelInputCache();
+            if (!_wheelInputCacheValid)
+            {
+                return false;
+            }
+            return IsBindingReleasedThisFrame(input);
+        }
+
+        private static bool IsBindingDown(BindingInput input)
+        {
+            if (input.Kind == BindingKind.Button)
+            {
+                int i = Mathf.Clamp(input.Code, 0, 127);
+                return _wheelButtonsDown != null && i < _wheelButtonsDown.Length && _wheelButtonsDown[i];
+            }
+            if (input.Kind == BindingKind.Pov)
+            {
+                int d = Mathf.Clamp(input.Code, 0, 3);
+                return _wheelPovDown != null && d < _wheelPovDown.Length && _wheelPovDown[d];
+            }
+            return false;
+        }
+
+        private static bool IsBindingPressedThisFrame(BindingInput input)
+        {
+            if (input.Kind == BindingKind.Button)
+            {
+                int i = Mathf.Clamp(input.Code, 0, 127);
+                return _wheelButtonsPressed != null && i < _wheelButtonsPressed.Length && _wheelButtonsPressed[i];
+            }
+            if (input.Kind == BindingKind.Pov)
+            {
+                int d = Mathf.Clamp(input.Code, 0, 3);
+                return _wheelPovPressed != null && d < _wheelPovPressed.Length && _wheelPovPressed[d];
+            }
+            return false;
+        }
+
+        private static bool IsBindingReleasedThisFrame(BindingInput input)
+        {
+            if (input.Kind == BindingKind.Button)
+            {
+                int i = Mathf.Clamp(input.Code, 0, 127);
+                return _wheelButtonsReleased != null && i < _wheelButtonsReleased.Length && _wheelButtonsReleased[i];
+            }
+            if (input.Kind == BindingKind.Pov)
+            {
+                int d = Mathf.Clamp(input.Code, 0, 3);
+                return _wheelPovReleased != null && d < _wheelPovReleased.Length && _wheelPovReleased[d];
+            }
+            return false;
+        }
+
         private static bool _logiInitAttempted;
         private static bool _logiAvailable;
         private static bool _logiConnected;
@@ -89,6 +586,7 @@ namespace EasyLogiWheelSupport
 
         private static float _wheelMenuHeartbeatTime;
         private static float _ffbPageHeartbeatTime;
+        private static float _bindingCaptureHeartbeatTime;
 
         private static bool ShouldApply()
         {
@@ -592,6 +1090,14 @@ namespace EasyLogiWheelSupport
             }
         }
 
+        internal static void SetBindingCaptureActive(bool active)
+        {
+            if (active)
+            {
+                _bindingCaptureHeartbeatTime = Time.unscaledTime;
+            }
+        }
+
         internal static void SetFfbPageActive(bool active)
         {
             if (active)
@@ -614,6 +1120,11 @@ namespace EasyLogiWheelSupport
         private static bool IsFfbPageActive()
         {
             return Time.unscaledTime - _ffbPageHeartbeatTime < 0.5f;
+        }
+
+        internal static bool IsBindingCaptureActive()
+        {
+            return Time.unscaledTime - _bindingCaptureHeartbeatTime < 0.5f;
         }
 
         internal static bool TryGetLogiState(out LogitechGSDK.DIJOYSTATE2ENGINES state)
