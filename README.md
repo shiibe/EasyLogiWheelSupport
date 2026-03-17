@@ -8,6 +8,10 @@
     <br />
     <a href="#about">About</a>
     ·
+    <a href="#what-it-does">What it does</a>
+    ·
+    <a href="#compatibility">Compatibility</a>
+    ·
     <a href="#features">Features</a>
     ·
     <a href="#screenshots">Screenshots</a>
@@ -15,6 +19,8 @@
     <a href="#installation">Installation</a>
     ·
     <a href="#configuration">Configuration</a>
+    ·
+    <a href="#in-game-menu">In-game menu</a>
     ·
     <a href="#troubleshooting">Troubleshooting</a>
     ·
