@@ -502,6 +502,20 @@ namespace EasyLogiWheelSupport
             y += sectionGap;
 
             _util.Label(GetVehicleHudPageTitle(_vehicleHudPage), p.x + p.width / 2f, y);
+            y += line;
+
+            if (_util.SimpleButtonRaw("Defaults", p.x + p.width / 2f, y))
+            {
+                if (_vehicleHudPage == VehicleHudPage.Vehicle)
+                {
+                    Plugin.ResetVehicleDefaults();
+                }
+                else
+                {
+                    Plugin.ResetHudDefaults();
+                }
+            }
+
             y += line + sectionGap;
 
             bool manual = Plugin.GetManualTransmissionEnabled();
@@ -532,6 +546,16 @@ namespace EasyLogiWheelSupport
                 if (_util.CycleButtonRaw("Ignition", ignLabel, center, y))
                 {
                     Plugin.SetIgnitionFeatureEnabled(!ignFeature);
+                }
+                y += line;
+
+                float holdS = Plugin.GetIgnitionHoldSeconds();
+                _util.ValueLabel($"{holdS:0.00}s", p.x + p.width - 12f, y);
+                float holdNorm = Mathf.InverseLerp(0.25f, 3.0f, holdS);
+                float? newHoldNorm = _util.Slider("Ignition Time", holdNorm, center, y, ref _mouseYLock);
+                if (newHoldNorm.HasValue)
+                {
+                    Plugin.SetIgnitionHoldSeconds(Mathf.Lerp(0.25f, 3.0f, newHoldNorm.Value));
                 }
                 y += line;
 

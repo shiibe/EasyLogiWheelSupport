@@ -50,6 +50,7 @@ namespace EasyLogiWheelSupport
             PatchByName(harmony, "sInputManager", "GetInput", postfix: nameof(SInputManager_GetInput_Postfix));
             PatchByName(harmony, "sHUD", "RadioDisplay", postfix: nameof(SHUD_RadioDisplay_Postfix));
             PatchByName(harmony, "sHUD", "DoFuelMath", prefix: nameof(SHUD_DoFuelMath_Prefix));
+            PatchByName(harmony, "sHUD", "DoTemperature", postfix: nameof(SHUD_DoTemperature_Postfix));
 
             // Vehicle lighting control (ignition + tuning).
             PatchByName(harmony, "Headlights", "Toggle", prefix: nameof(Headlights_Toggle_Prefix), postfix: nameof(Headlights_Toggle_Postfix));
@@ -646,11 +647,13 @@ namespace EasyLogiWheelSupport
                         }
                     }
                 }
+                bool ignitionPressed = false;
                 bool ignitionDown = false;
                 bool ignitionReleased = false;
 
                 if (ign.Kind != BindingKind.None && haveWheelState)
                 {
+                    ignitionPressed = Pressed(ign);
                     ignitionDown = Down(ign);
                     ignitionReleased = Released(ign);
                 }
@@ -662,11 +665,31 @@ namespace EasyLogiWheelSupport
                     _ignitionHoldStart = -1f;
                     _ignitionHoldConsumed = false;
                     _ignitionHoldWasDown = ignitionDown;
+                    _ignitionIgnoreHoldUntilRelease = false;
+                    ignitionPressed = false;
                     ignitionDown = false;
                     ignitionReleased = false;
                 }
 
-                if (ignitionDown)
+                // Ignition OFF is instant. Ignition ON uses hold timer.
+                if (ignitionFeature && GetIgnitionEnabled() && ignitionPressed)
+                {
+                    ClearDefaultActionsThisFrame();
+                    StopIgnitionHoldSfx();
+                    _ignitionHoldStart = -1f;
+                    _ignitionHoldConsumed = false;
+                    _ignitionIgnoreHoldUntilRelease = true;
+
+                    SetIgnitionEnabled(false);
+                    ApplyIgnitionStateChange(false);
+
+                    if (_debugLogging != null && _debugLogging.Value)
+                    {
+                        _log?.LogInfo("Ignition toggled -> OFF");
+                    }
+                }
+
+                if (ignitionFeature && !GetIgnitionEnabled() && ignitionDown && !_ignitionIgnoreHoldUntilRelease)
                 {
                     // Prevent this button from triggering default gamepad actions while holding.
                     ClearDefaultActionsThisFrame();
@@ -691,18 +714,18 @@ namespace EasyLogiWheelSupport
                         }
                     }
 
-                    if (!_ignitionHoldConsumed && Time.unscaledTime - _ignitionHoldStart >= IgnitionHoldSeconds)
+                    float holdS = GetIgnitionHoldSeconds();
+                    if (!_ignitionHoldConsumed && Time.unscaledTime - _ignitionHoldStart >= holdS)
                     {
-                        bool next = !GetIgnitionEnabled();
-                        SetIgnitionEnabled(next);
-                        ApplyIgnitionStateChange(next);
+                        SetIgnitionEnabled(true);
+                        ApplyIgnitionStateChange(true);
                         _ignitionHoldConsumed = true;
 
                         StopIgnitionHoldSfx();
 
                         if (_debugLogging != null && _debugLogging.Value)
                         {
-                            _log?.LogInfo("Ignition toggled -> " + (next ? "ON" : "OFF") + " (held " + (Time.unscaledTime - _ignitionHoldStart).ToString("0.00") + "s)");
+                            _log?.LogInfo("Ignition toggled -> ON (held " + (Time.unscaledTime - _ignitionHoldStart).ToString("0.00") + "s)");
                         }
                     }
                 }
@@ -712,6 +735,8 @@ namespace EasyLogiWheelSupport
                     ClearDefaultActionsThisFrame();
 
                     StopIgnitionHoldSfx();
+
+                    _ignitionIgnoreHoldUntilRelease = false;
 
                     if (_debugLogging != null && _debugLogging.Value)
                     {
@@ -980,11 +1005,52 @@ namespace EasyLogiWheelSupport
             return true;
         }
 
-        private const float IgnitionHoldSeconds = 1.5f;
+        private static void SHUD_DoTemperature_Postfix(sHUD __instance)
+        {
+            if (!ShouldApply() || __instance == null)
+            {
+                return;
+            }
+
+            // Only while the player is in the vehicle.
+            if (__instance.navigation == null || __instance.navigation.car == null || __instance.navigation.car.GuyActive)
+            {
+                return;
+            }
+
+            // Only when ignition feature is enabled and currently OFF.
+            if (!GetIgnitionFeatureEnabled() || GetIgnitionEnabledEffective())
+            {
+                return;
+            }
+
+            if (_ignitionOffSince < 0f)
+            {
+                _ignitionOffSince = Time.unscaledTime;
+            }
+            if (Time.unscaledTime - _ignitionOffSince < IgnitionColdAfterSeconds)
+            {
+                return;
+            }
+
+            // Use the game's existing warning string.
+            __instance.AddWarning("truck temperature low");
+
+            // Nudge temperature down a bit faster while the engine has been off for a while.
+            float extra = __instance.temperatureRate * 0.5f;
+            __instance.temperature = Mathf.Clamp(__instance.temperature - Time.deltaTime * extra, 0f, __instance.temperatureLimit);
+        }
+
+        private const float IgnitionColdAfterSeconds = 30.0f;
 
         private static float _ignitionHoldStart = -1f;
         private static bool _ignitionHoldConsumed;
         private static bool _ignitionHoldWasDown;
+
+        // When ignition is turned OFF on press, require release before allowing a new start-hold.
+        private static bool _ignitionIgnoreHoldUntilRelease;
+
+        private static float _ignitionOffSince = -1f;
 
         private static bool _ignitionPrevHeadlightsOn;
         private static bool _ignitionPrevRadioOn;
@@ -1607,6 +1673,21 @@ namespace EasyLogiWheelSupport
                 _ignitionPrevHeadlightsOn = hl != null && hl.headlightsOn;
                 _ignitionPrevRadioOn = radioIsForCar && radio.source != null && radio.source.enabled;
 
+                _ignitionOffSince = Time.unscaledTime;
+
+                // Engine-off click: reuse headlights OFF click.
+                if (_ignitionPrevHeadlightsOn && hl != null)
+                {
+                    try
+                    {
+                        hl.PlaySound(false);
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                }
+
                 // Force off.
                 ForceVehicleLightsOff(car);
                 if (radioIsForCar && radio.source != null && radio.source.enabled)
@@ -1620,6 +1701,8 @@ namespace EasyLogiWheelSupport
                 }
                 return;
             }
+
+            _ignitionOffSince = -1f;
 
             if (_suppressNextIgnitionOnSfx)
             {
@@ -2004,7 +2087,8 @@ namespace EasyLogiWheelSupport
 
             if (starting)
             {
-                float t = Mathf.Clamp01((Time.unscaledTime - _ignitionHoldStart) / IgnitionHoldSeconds);
+                float holdS = Mathf.Max(0.01f, GetIgnitionHoldSeconds());
+                float t = Mathf.Clamp01((Time.unscaledTime - _ignitionHoldStart) / holdS);
                 PutLine(aSpeed, "START " + Mathf.RoundToInt(t * 100f) + "%");
             }
             else if (showOff)

@@ -117,6 +117,7 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 
 **Vehicle**
 - `Ignition`: enable/disable ignition behavior (disabled = always on; ignition bind does nothing)
+- `Ignition Time`: how long you must hold the ignition bind to toggle
 - `Ignition SFX`: enable/disable ignition sounds
 - `Transmission`: Auto/Manual
 - Manual-only: `Max Gears`
@@ -130,12 +131,14 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 - `Speedomtr Pos`, Manual-only: `Tachomtr Pos`, `Gear Ind. Pos`
 
 **Ignition**
-- Bind `Ignition` in `wheel.exe` -> `Bindings` to enable ignition on/off behavior.
-- If `Ignition` is unbound, ignition is treated as always on.
-- Hold the `Ignition` bind for ~1.5 seconds to toggle (safety).
+- Bind `Ignition(Hold)` in `wheel.exe` -> `Bindings` to enable ignition on/off behavior.
+- If `Ignition(Hold)` is unbound, ignition is treated as always on.
+- Ignition OFF is instant (press). Ignition ON requires holding for the configured time.
 - While holding to turn ignition ON, `ignition_on.wav` plays/loops until the toggle completes or you release.
 - HUD: shows a `START xx%` indicator while the engine is starting.
 - Ignition OFF: disables throttle, turns off headlights + radio, mutes engine, and stops fuel consumption.
+- Ignition OFF: after extended time with the engine off, the game can warn `truck temperature low` (and the truck will cool faster).
+- Ignition OFF: plays the same click as toggling headlights off.
 - Optional SFX:
   - `ignition_on.wav`: place in `sfx/` next to `EasyLogiWheelSupport.dll` (recommended: `sfx/ignition_on.wav`).
   - Or set `Ignition/sfx_on_path` to a file name inside that `sfx/` folder.
@@ -166,4 +169,4 @@ This mod uses Logitech's Steering Wheel SDK wrapper for Force Feedback (FFB).
 
 ## Build
 - Build: `dotnet build EasyLogiWheelSupport/EasyLogiWheelSupport.csproj -c Release`
-- Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 1.0.2`
+- Package: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1 -Version 1.2.0`

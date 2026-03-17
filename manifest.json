@@ -1,6 +1,6 @@
 {
     "name":  "EasyLogiWheelSupport",
-    "version_number":  "1.0.2",
+    "version_number":  "1.2.0",
     "website_url":  "https://github.com/shiibe/EasyLogiWheelSupport",
     "description":  "Logitech wheel support for Easy Delivery Co. (FFB + optional manual transmission)",
     "dependencies":  [

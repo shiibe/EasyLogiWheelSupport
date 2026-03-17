@@ -80,6 +80,7 @@ namespace EasyLogiWheelSupport
 
         internal const string PrefKeyIgnitionEnabled = "ELWS_IgnitionEnabled";
         internal const string PrefKeyIgnitionFeatureEnabled = "ELWS_IgnitionFeatureEnabled";
+        internal const string PrefKeyIgnitionHoldSeconds = "ELWS_IgnitionHoldSeconds";
 
         internal const string PrefKeyIgnitionSfxEnabled = "ELWS_IgnitionSfxEnabled";
 
@@ -130,6 +131,7 @@ namespace EasyLogiWheelSupport
                 PrefKeyHudGearAnchor,
                 PrefKeyIgnitionEnabled,
                 PrefKeyIgnitionFeatureEnabled,
+                PrefKeyIgnitionHoldSeconds,
                 PrefKeyIgnitionSfxEnabled,
                 PrefKeyHeadlightIntensityMult,
                 PrefKeyHeadlightRangeMult,
@@ -612,7 +614,7 @@ namespace EasyLogiWheelSupport
                 case ButtonBindAction.ShiftDown:
                     return "Shift Down";
                 case ButtonBindAction.IgnitionToggle:
-                    return "Ignition";
+                    return "Ignition(Hold)";
                 default:
                     return action.ToString();
             }
@@ -944,6 +946,51 @@ namespace EasyLogiWheelSupport
         internal static void SetIgnitionFeatureEnabled(bool enabled)
         {
             PlayerPrefs.SetInt(PrefKeyIgnitionFeatureEnabled, enabled ? 1 : 0);
+        }
+
+        internal static float GetIgnitionHoldSeconds()
+        {
+            return Mathf.Clamp(PlayerPrefs.GetFloat(PrefKeyIgnitionHoldSeconds, 1.5f), 0.25f, 5.0f);
+        }
+
+        internal static void SetIgnitionHoldSeconds(float seconds)
+        {
+            PlayerPrefs.SetFloat(PrefKeyIgnitionHoldSeconds, Mathf.Clamp(seconds, 0.25f, 5.0f));
+        }
+
+        internal static void ResetVehicleDefaults()
+        {
+            SetManualTransmissionEnabled(false);
+            SetManualGearCount(5);
+
+            SetIgnitionFeatureEnabled(true);
+            SetIgnitionEnabled(true);
+            SetIgnitionHoldSeconds(1.5f);
+            SetIgnitionSfxEnabled(true);
+
+            SetManualSpeedMultForward(1.0f);
+            SetManualSpeedMultReverse(1.0f);
+
+            SetHeadlightIntensityMult(1.0f);
+            SetHeadlightRangeMult(1.0f);
+
+            PlayerPrefs.Save();
+        }
+
+        internal static void ResetHudDefaults()
+        {
+            SetHudSpeedUnit(SpeedUnit.Kmh);
+
+            SetHudShowSpeed(true);
+            SetHudShowTach(true);
+            SetHudShowGear(true);
+
+            SetHudReadoutAnchor(HudReadoutAnchor.BottomLeft);
+            PlayerPrefs.DeleteKey(PrefKeyHudSpeedAnchor);
+            PlayerPrefs.DeleteKey(PrefKeyHudTachAnchor);
+            PlayerPrefs.DeleteKey(PrefKeyHudGearAnchor);
+
+            PlayerPrefs.Save();
         }
 
         internal static bool GetIgnitionSfxEnabled()
