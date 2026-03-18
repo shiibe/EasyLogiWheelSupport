@@ -1,8 +1,8 @@
 {
     "name":  "EasyLogiWheelSupport",
-    "version_number":  "1.0.2",
+    "version_number":  "1.0.3",
     "website_url":  "https://github.com/shiibe/EasyLogiWheelSupport",
-    "description":  "Logitech wheel support for Easy Delivery Co.",
+    "description":  "DEPRECATED: This mod has been replaced by SebLogiWheel. https://thunderstore.io/c/easy-delivery-co/p/shiibe/SebLogiWheel/",
     "dependencies":  [
                          "BepInEx-BepInExPack-5.4.2304"
                      ]

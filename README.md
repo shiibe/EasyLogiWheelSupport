@@ -1,3 +1,10 @@
+## Deprecated
+This package is deprecated and will not receive new updates.
+
+Use the rewrite/rebrand instead:
+- SebLogiWheel on Thunderstore: https://thunderstore.io/c/easy-delivery-co/p/shiibe/SebLogiWheel/
+- SebLogiWheel source: https://github.com/shiibe/EasyDeliveryCoMods/tree/master/plugins/SebLogiWheel
+
 <h1>
 <p align="center">
   <img src="https://raw.githubusercontent.com/shiibe/EasyLogiWheelSupport/refs/heads/main/assets/icon.png" alt="Logo" width="128">

@@ -1,3 +1,6 @@
+## 1.0.3
+- Deprecated; use SebLogiWheel: https://thunderstore.io/c/easy-delivery-co/p/shiibe/SebLogiWheel/
+
 ## 1.0.2
 - Update calibration UI copy/placement and wheel-not-detected messaging.
 - Fix FancyButton centering.

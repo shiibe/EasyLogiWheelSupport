@@ -7,6 +7,6 @@ namespace EasyLogiWheelSupport
     {
         public const string PluginGuid = "shibe.easydeliveryco.logiwheel";
         public const string PluginName = "LogiWheel";
-        public const string PluginVersion = "1.0.2";
+        public const string PluginVersion = "1.0.3";
     }
 }
